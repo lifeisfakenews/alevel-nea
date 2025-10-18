@@ -27,10 +27,32 @@ const WEBHOOK_URL = import.meta.env.WEBHOOK_URL;
 //handle unhandled promise rejections + uncaught exceptions
 function handleError(err: any) {
     log(`${err.message}\n\`\`\`${err.stack}\`\`\``, "error");
-}
-process.on("unhandledRejection", handleError);
-process.on("uncaughtException", handleError);
+};
+// perform required checks for usernames when account is created
+async function validateUsername(username: string) {
+    if (!username) return {valid: false, error: "No username provided"};
+    if (username.length < 3 || username.length >= 24) return {valid: false, error: "Username must be between 3 and 24 characters"};
+    // the regex matches to lower case letters, numbers and dashes
+    // if the full string doesnt match then the username contains disallowed characters
+    if (!username.match(/^[a-z0-9-]+$/)) return {valid: false, error: "Username can only contain letters, numbers, and dashes"};
 
+    const user = await db_users.findOne({ username });
+    if (user) return {valid: false, error: "Username already taken"};
+
+    return {valid: true, error: null};
+};
+
+//perform required checks for passwords when account is created
+function validatePassword(password: string) {
+    if (!password) return {valid: false, error: "No password provided"};
+    if (password.length < 6) return {valid: false, error: "Password must be at least 6 characters"};
+    if (!password.match(/[a-z]/)) return {valid: false, error: "Password must contain at least one lowercase letter"};
+    if (!password.match(/[A-Z]/)) return {valid: false, error: "Password must contain at least one uppercase letter"};
+    if (!password.match(/[0-9]/)) return {valid: false, error: "Password must contain at least one number"};
+    //The \W group matches any non-word character (i.e. symbols). _ must also be specified as it is considered a word character
+    if (!password.match(/[\W_]/)) return {valid: false, error: "Password must contain at least one special character"};
+    return {valid: true, error: null};
+}
 
 // general logging function
 // logs to stdout and the discord webhook defined in env
@@ -134,32 +156,6 @@ web_server.post("/users/login", async(req, res) => {
     }
 });
 
-// perform required checks for usernames when account is created
-async function validateUsername(username: string) {
-    if (!username) return {valid: false, error: "No username provided"};
-    if (username.length < 3 || username.length >= 24) return {valid: false, error: "Username must be between 3 and 24 characters"};
-    // the regex matches to lower case letters, numbers and dashes
-    // if the full string doesnt match then the username contains disallowed characters
-    if (!username.match(/^[a-z0-9-]+$/)) return {valid: false, error: "Username can only contain letters, numbers, and dashes"};
-
-    const user = await db_users.findOne({ username });
-    if (user) return {valid: false, error: "Username already taken"};
-
-    return {valid: true, error: null};
-};
-
-//perform required checks for passwords when account is created
-function validatePassword(password: string) {
-    if (!password) return {valid: false, error: "No password provided"};
-    if (password.length < 6) return {valid: false, error: "Password must be at least 6 characters"};
-    if (!password.match(/[a-z]/)) return {valid: false, error: "Password must contain at least one lowercase letter"};
-    if (!password.match(/[A-Z]/)) return {valid: false, error: "Password must contain at least one uppercase letter"};
-    if (!password.match(/[0-9]/)) return {valid: false, error: "Password must contain at least one number"};
-    //The \W group matches any non-word character (i.e. symbols). _ must also be specified as it is considered a word character
-    if (!password.match(/[\W_]/)) return {valid: false, error: "Password must contain at least one special character"};
-    return {valid: true, error: null};
-}
-
 // create a new user. Body requires `username`, `password`, `name`, and `role`
 // TODO: This will be restricted to staff only, however to create test accounts easily it isnt.
 web_server.put("/users", async(req, res) => {
@@ -197,4 +193,8 @@ web_server.put("/users", async(req, res) => {
         log(`Error on PUT \`/users\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
-})
+});
+
+
+process.on("unhandledRejection", handleError);
+process.on("uncaughtException", handleError);
