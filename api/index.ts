@@ -28,6 +28,7 @@ const WEBHOOK_URL = import.meta.env.WEBHOOK_URL;
 function handleError(err: any) {
     log(`${err.message}\n\`\`\`${err.stack}\`\`\``, "error");
 };
+
 // perform required checks for usernames when account is created
 async function validateUsername(username: string) {
     if (!username) return {valid: false, error: "No username provided"};
@@ -53,6 +54,27 @@ function validatePassword(password: string) {
     if (!password.match(/[\W_]/)) return {valid: false, error: "Password must contain at least one special character"};
     return {valid: true, error: null};
 }
+
+// checks the proivided authorization header and returns the user if valid, otherwise returns null
+async function validateAuthHeader(header?: string) {
+    if (!header) return null;
+    const [encoded_user_id, session_token] = header.split(".");
+    if (!encoded_user_id || !session_token) return null;
+    // first decode the user ID from base64 and see if its a real user account
+    const user_id = atob(encoded_user_id);
+    const user = await db_users.findById(user_id);
+    if (!user) return null;
+    // then see if a non-expired session with that token exists
+    // check against the full header value, not just the token bit
+    const session = user.sessions.find(x => x.token === header);
+    if (!session) return null;
+    if (session.expiry.getTime() < Date.now()) return null;
+
+    return {
+        user: user.toObject({ flattenObjectIds: true }),
+        session: session,
+    };
+};
 
 // general logging function
 // logs to stdout and the discord webhook defined in env
@@ -81,7 +103,7 @@ async function log(content: string, type: "error" | "reload" | "other" = "other"
 
     //log to stdout
     console.log(content);
-}
+};
 
 // generate random characters of a given length
 function randomString(length: number) {
@@ -93,7 +115,7 @@ function randomString(length: number) {
         result += characters[index];
     }
     return result;
-}
+};
 
 
 //Connect to the database, if a connection isnt already established
@@ -195,6 +217,35 @@ web_server.put("/users", async(req, res) => {
     }
 });
 
+
+// fetch a user by ID. Provide @me to return the current user
+// requires authentication
+web_server.get("/users/:user_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const { user_id } = req.params;
+        if (user_id === "@me") {
+            //return the current user
+            return res.status(200).json({
+                success: true,
+                data: authCheck.user,
+            });
+        };
+
+        if (!mongoose.Types.ObjectId.isValid(user_id)) return res.status(404).send("User not found");
+        const user = await db_users.findById(user_id);
+        if (!user) return res.status(404).send("User not found");
+        return res.status(200).json({
+            success: true,
+            data: user,
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/users/:user_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 process.on("unhandledRejection", handleError);
 process.on("uncaughtException", handleError);
