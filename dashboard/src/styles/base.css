@@ -431,8 +431,11 @@ blockquote, pre, code {
 }
 .input-error {
     margin-top: 1rem;
-    display: none;
     color: var(--nea-clr-danger-400);
+    
+    &:empty {
+        display: none;
+    }
 }
 .input-hint {
     margin-top: 1rem;

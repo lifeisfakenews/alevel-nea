@@ -130,6 +130,14 @@ web_server.listen(PORT, () => {
     log(`Server listening on port ${PORT}`, "reload");
 });
 
+web_server.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "*");
+    res.header("Access-Control-Allow-Credentials", "true");
+    next();
+});
+
 web_server.use(express.json());//parse request bodies into JSON
 
 // Define routes
@@ -147,10 +155,10 @@ web_server.post("/users/login", async(req, res) => {
         if (!password) return res.status(400).send("No password provided");
     
         const user = await db_users.findOne({ username });
-        if (!user) return res.status(401).send("Invalid username");
+        if (!user) return res.status(400).send("Invalid username");
     
         const password_match = await bcrypt.compare(password, user.password);
-        if (!password_match) return res.status(401).send("Invalid password");
+        if (!password_match) return res.status(400).send("Invalid password");
     
         const base64_encoded_user_id = btoa(user.id);
         const token = `${base64_encoded_user_id}.${randomString(32)}`;
