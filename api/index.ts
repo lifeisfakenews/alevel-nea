@@ -53,7 +53,7 @@ function validatePassword(password: string) {
     //The \W group matches any non-word character (i.e. symbols). _ must also be specified as it is considered a word character
     if (!password.match(/[\W_]/)) return {valid: false, error: "Password must contain at least one special character"};
     return {valid: true, error: null};
-}
+};
 
 // checks the proivided authorization header and returns the user if valid, otherwise returns null
 async function validateAuthHeader(header?: string) {
@@ -213,6 +213,90 @@ web_server.put("/users", async(req, res) => {
         });
     } catch(e: any) {
         log(`Error on PUT \`/users\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+//Create many users. Body takes an array of objects with `username`, `password`, `name`, and `role`
+// used by the staff dashboard
+// TODO: This will be restricted to staff only, however to create test accounts easily it isnt.
+web_server.put("/users/bulk", async(req, res) => {
+    try {
+        const { users } = req.body;
+        if (!users) return res.status(400).send("No users provided");
+        if (!Array.isArray(users)) return res.status(400).send("Must provide an array of user details");
+    
+        type UserDetailError = {
+            index: number;
+            field: "username" | "password" | "name" | "role";
+            error: string | null;
+        }
+
+        const created_users:User[] = [];
+        const errors:UserDetailError[] = [];
+
+        // iterate through each user
+        for (let i = 0; i < users.length; i++) {
+            const user = users[i];
+            let is_valid = true;
+
+            // do the validation checks
+            if (!user.username) {
+                errors.push({ index: i, field: "username", error: "No username provided" });
+                is_valid = false;
+            } else {
+                const username_valid = await validateUsername(user.username);
+                if (!username_valid.valid) {
+                    errors.push({index: i, field: "username", error: username_valid.error });
+                    is_valid = false;
+                };
+            };
+
+            if (!user.password) {
+                errors.push({ index: i, field: "password", error: "No password provided" });
+                is_valid = false;
+            } else {
+                const password_valid = validatePassword(user.password);
+                if (!password_valid.valid) {
+                    errors.push({index: i, field: "password", error: password_valid.error });
+                    is_valid = false;
+                };
+            };
+
+            if (!user.name) {
+                errors.push({ index: i, field: "name", error: "No name provided" });
+                is_valid = false;
+            };
+
+            if (user.role === undefined) {
+                errors.push({ index: i, field: "role", error: "No role provided" });
+                is_valid = false;
+            } else if (isNaN(user.role) || user.role < 0 || user.role > 3) {
+                errors.push({ index: i, field: "role", error: "Invalid role" });
+                is_valid = false;
+            };
+
+            if (is_valid) {
+                const hashed_password = await bcrypt.hash(user.password, 10);
+                const new_user = await new db_users({
+                    username: user.username,
+                    password: hashed_password,
+                    name: user.name,
+                    role: user.role,
+                }).save();
+                created_users.push(new_user);
+            }
+        };
+    
+        return res.status(201).json({
+            sucess: true,
+            data: {
+                users: created_users,
+                errors: errors,
+            },
+        });
+    } catch(e: any) {
+        log(`Error on PUT \`/users/bulk\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });
