@@ -208,7 +208,7 @@ web_server.put("/users", async(req, res) => {
         }).save();
 
         return res.status(201).json({
-            sucess: true,
+            success: true,
             data: new_user,
         });
     } catch(e: any) {
@@ -289,7 +289,7 @@ web_server.put("/users/bulk", async(req, res) => {
         };
     
         return res.status(201).json({
-            sucess: true,
+            success: true,
             data: {
                 users: created_users,
                 errors: errors,
