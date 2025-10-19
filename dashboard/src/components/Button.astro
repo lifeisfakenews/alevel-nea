@@ -1,0 +1,158 @@
+---
+
+type Modifiers = "wrap-text" | "no-mg" | "no-mgb" | "no-mgi" | "w-100" | "no-float";
+
+export type Props = {
+    text?: string;
+    icon?: string;
+    loader?: boolean;
+    theme: "primary" | "dark" | "inline";
+    type?: "submit" | "button" | "reset";
+    disabled?: boolean;
+    href?: string;
+    target?: "_blank";
+    modifiers?: Modifiers[];
+    id?: string;
+
+    className?: string;
+
+    [key: `data-${string}`]: string;
+}
+
+const { text, icon, loader = false, theme, type = "button", disabled = false, href, target = "", modifiers = [], id, className, ...attrs } = Astro.props as Props;
+
+---
+
+{href ? 
+<a href={href} target={target} data-theme={theme} aria-disabled={disabled} class={className + " block-link"} data-modifiers={modifiers.join(" ")} id={id} {...attrs}>
+    {loader ? <div class="loader" aria-hidden="true"></div> : ""}
+    {icon ? <i class={`bx ${icon}`}></i> : ""}
+    {text ? <span>{text}</span> : <slot />}
+</a>
+: 
+<button type={type} data-theme={theme} disabled={disabled} aria-disabled={disabled} class={className} data-modifiers={modifiers.join(" ")} id={id} {...attrs}>
+    {loader ? <div class="loader" aria-hidden="true"></div> : ""}
+    {icon ? <i class={`bx ${icon}`}></i> : ""}
+    {text ? <span>{text}</span> : <slot />}
+</button>
+}
+
+<style>
+    :where(button, a) {
+        --_padding-block: .8rem;
+        --_padding-inline: 2rem;
+
+        background: inherit;
+        border: none;
+        border-radius: .4rem;
+        padding: var(--_padding-block) var(--_padding-inline);
+        margin: .5rem;
+        position: relative;
+        display: inline-flex;
+        gap: .5rem;
+        align-items: center;
+        justify-content: center;
+        font: inherit;
+        text-align: center;
+        font-weight: 500;
+        color: var(--nea-clr-text-100);
+        cursor: pointer;
+        transition: .3s ease, outline 0s;
+        overflow: hidden;
+    }
+
+    :where(button, a):where(:focus, :focus-visible, :focus-within) {
+        outline: 3px solid transparent;
+    }
+    
+    :is(button, a):is(:hover, :focus-visible) {
+        text-decoration: none;
+        color: var(--nea-clr-text-100) !important;
+    }
+    :where(button, a):not([data-modifiers~="no-float"]):where(:hover, :focus-visible) {
+        translate: 0 -.3rem;
+    }
+
+    [data-theme] {
+        background: var(--nea-clr-button-400);
+    }
+    [data-theme="primary"] {
+        --nea-clr-button-400: var(--nea-clr-primary-400);
+        --nea-clr-button-600: var(--nea-clr-primary-600);
+    }
+    [data-theme="dark"] {
+        border: .1rem solid var(--nea-clr-dark-700);
+        --nea-clr-button-400: var(--nea-clr-dark-500);
+        --nea-clr-button-600: var(--nea-clr-dark-700);
+    }
+    [data-theme="inline"] {
+        background: transparent;
+        border: none;
+        padding: 0;
+        font: inherit;
+        color: var(--bc-clr-secondary-400);
+        cursor: pointer;
+    }
+
+    :not([data-modifiers~="wrap-text"]) {white-space: nowrap}
+    [data-modifiers~="wrap-text"] {flex-wrap: wrap}
+    [data-modifiers~="no-mg"] {margin: 0}
+    [data-modifiers~="no-mgb"] {margin-block: 0}
+    [data-modifiers~="no-mgi"] {margin-inline: 0}
+    [data-modifiers~="w-100"] {width: 100%}
+
+    .loader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        translate: -50% -50%;
+        width: 24px;
+        height: 24px;
+        animation: s__loader_rotate 1s linear infinite;
+        transition: .3s;
+        opacity: 0;
+        rotate: 90deg;
+        transform: translateX(-.5rem);
+    }
+    .loader::before, .loader::after {
+        content: "";
+        background-color: var(--nea-clr-text-100);
+        border-radius: 50%;
+        position: absolute;
+        top: 0;
+        width: 12px;
+        aspect-ratio: 1;
+        animation: buttons__loader_scale 1s infinite ease-in-out
+    }
+    .loader::before {
+        top: auto;
+        bottom: 0;
+        animation-delay: .5s
+    }
+    span {
+        font-size: inherit;
+        color: inherit;
+        transition: .3s
+    }
+
+    i {
+        background: var(--nea-clr-button-600);
+        margin-right: 1rem;
+        margin-left: calc(-1 * var(--_padding-inline));
+        margin-block: calc(-1 * var(--_padding-block));
+        padding: var(--_padding-block) calc(var(--_padding-inline) / 2);
+        font-size: var(--nea-fs-800);
+    }
+
+    .loading .loader {opacity: 1}
+    .loading span {opacity: 0}
+
+    @keyframes buttons__loader_rotate {
+        from {rotate: 0}
+        to {rotate: 360deg}
+    }
+    @keyframes buttons__loader_scale {
+        0%, 100% {transform: scale(0)}
+        50% {transform: scale(1)}
+    }
+</style>

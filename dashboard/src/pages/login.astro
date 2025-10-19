@@ -1,0 +1,89 @@
+---
+
+import Layout from "@/layouts/Primary.astro";
+
+import Card from "@/components/Card.astro";
+import Button from "@/components/Button.astro";
+
+---
+
+<Layout title="Login">
+    <div class="place-center">
+        <Card title="Login">
+            <form id="loginForm">
+                <label for="loginUsername" class="label">Username</label>
+                <input type="text" id="loginUsername" class="input" placeholder="Username" required />
+
+                <label for="loginPassword" class="label">Password</label>
+                <input type="password" id="loginPassword" class="input" placeholder="Password" required />
+
+                <br />
+                
+                <Button text="Login" type="submit" theme="primary" modifiers={["w-100", "no-mg"]} />
+
+                <p class="input-error" id="loginError"></p>
+            </form>
+        </Card>
+    </div>
+</Layout>
+
+<script>
+    import sendRequest from "@/lib/request";
+    import { ROLE_STUDENT } from "@/lib/constants";
+
+    const loginForm = document.querySelector("#loginForm") as HTMLFormElement;
+    loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        // get the button and error elements, clear the error state and show a loading spinner
+        const error = loginForm.querySelector("#loginError") as HTMLParagraphElement;
+        const button = loginForm.querySelector("button") as HTMLButtonElement;
+        // if the button is already in a loading state, the submission is already being processed so dont start agin
+        if (button.classList.contains("loading")) return;
+        button.classList.add("loading");
+        error.innerText = "";
+
+        try {
+            const username = loginForm.querySelector("#loginUsername") as HTMLInputElement;
+            const password = loginForm.querySelector("#loginPassword") as HTMLInputElement;
+            let valid = true;
+
+            if (!username.value) {
+                error.innerText = "Username is required";
+                valid = false;
+            };
+            if (!password.value) {
+                error.innerText = "Password is required";
+                valid = false;
+            };
+            if (valid) {
+                type PartialUser = {
+                    token: string;
+                    username: string;
+                    name: string;
+                    role: number;
+                }
+                const result = await sendRequest<PartialUser>("users/login", "POST", {
+                    username: username.value,
+                    password: password.value,
+                });
+                if (result.success) {
+                    // student accounts cannot use the dashboard
+                    if (result.data.role === ROLE_STUDENT) {
+                        error.innerText = "You don't have access";
+                    } else {
+                        // store the token in a cookie for 7 days
+                        document.cookie = `token=${result.data.token}; expires=${new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toUTCString()}; path=/`;
+                        // redirect them to the home page
+                        window.location.href = "/";
+                    }
+                } else {
+                    error.innerText = result.error;
+                };
+            };
+        } catch(e) {
+            console.error(e);
+            error.innerText = "Failed to login. An unexpected error occured.";
+        };
+        button.classList.remove("loading");
+    });
+</script>
