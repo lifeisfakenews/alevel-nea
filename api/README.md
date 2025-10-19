@@ -1,4 +1,9 @@
-# api
+# API
+
+Central API for my NEA project.
+
+Copy `.env.example` to `.env` and fill in the values.
+
 
 To install dependencies:
 

@@ -301,7 +301,6 @@ web_server.put("/users/bulk", async(req, res) => {
     }
 });
 
-
 // fetch a user by ID. Provide @me to return the current user
 // requires authentication
 web_server.get("/users/:user_id", async(req, res) => {
