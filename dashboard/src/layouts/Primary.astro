@@ -1,0 +1,77 @@
+---
+
+export type Props = {
+    title: string;
+}
+
+const { title } = Astro.props;
+
+import "@/styles/base.css";
+
+
+---
+
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+
+        <!-- SEO and that -->
+        <meta name="author" content="NEA Dashboard">
+        <meta name="title" content={title + " - NEA Dashboard"}>
+        <meta name="theme-color" content="#06c1c1">
+        <meta name="robots" content="noindex, nofollow">
+        <meta name="language" content="English">
+
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+        <title>{title + " - NEA Dashboard"}</title>
+    </head>
+    <body>
+        <header class="flex h-center">
+            <div class="flex f1 v-center">
+                <p class="title">{title}</p>
+                <div class="push-right">
+                    <a href="/login" class="button primary">Login</a>
+                </div>
+            </div>
+        </header>
+        <main>
+            <slot />
+        </main>
+    </body>
+</html>
+
+<style>
+    header {
+        border-bottom: .1rem solid var(--nea-clr-dark-900);
+        padding: 2rem;
+
+        & > div {
+            max-width: 120rem;
+        }
+
+        & .title {
+            font-weight: 800;
+            font-size: 2.5rem;
+            color: var(--nea-clr-text-100);
+        }
+    }
+
+    main {
+        margin-inline: auto;
+        padding: max(4rem, 5vw);
+        padding-top: 2rem;
+        max-width: 150rem;
+        width: 100%;
+    }
+    main > :first-child {
+        margin-top: 0;
+    }
+    main > :last-child {
+        margin-bottom: 0;
+    }
+</style>
