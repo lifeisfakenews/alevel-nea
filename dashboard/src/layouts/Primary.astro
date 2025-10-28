@@ -2,20 +2,14 @@
 
 import Dropdown from "@/components/Dropdown.astro";
 
-import request from "@/lib/request";
-import { type User } from "@/lib/types";
-
 export type Props = {
     title: string;
 }
 
 const { title } = Astro.props;
+const { user } = Astro.locals;
 
 import "@/styles/base.css";
-
-const result = await request<User>("users/@me", "GET", undefined, Astro);
-let user:User|null = null;
-if (result.success) user = result.data;
 
 ---
 
