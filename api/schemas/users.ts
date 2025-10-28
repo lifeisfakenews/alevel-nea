@@ -15,6 +15,7 @@ export type User = {
     role: number;
     sessions: {
         id: string;
+        created_at: Date;
         token: string;
         expiry: Date;
     }[];
@@ -31,6 +32,11 @@ export type User = {
 const sessionSchema = new Schema({
     token: { type: String, required: true },
     expiry: { type: Date, required: true },
+}, {
+    timestamps: {
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+    }
 });
 
 const schema = new Schema({

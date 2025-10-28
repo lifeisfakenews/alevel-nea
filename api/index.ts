@@ -76,6 +76,26 @@ async function validateAuthHeader(header?: string) {
     };
 };
 
+// Check a user's role against a given role(s)
+async function checkUserRole(user_or_id: User | string, role: number | number[]) {
+    // first get a full user object
+    let user: User | null = null;
+    if (typeof user_or_id === "string") {
+        if (!mongoose.Types.ObjectId.isValid(user_or_id)) return false;
+        user = await db_users.findById(user_or_id);
+    } else {
+        user = user_or_id;
+    }
+    if (!user) return false;
+
+    // then check the user's role against the given role(s)
+    if (Array.isArray(role)) {
+        return role.includes(user.role);
+    } else {
+        return user.role === role;
+    }
+};
+
 // general logging function
 // logs to stdout and the discord webhook defined in env
 async function log(content: string, type: "error" | "reload" | "other" = "other") {
@@ -305,6 +325,28 @@ web_server.put("/users/bulk", async(req, res) => {
         });
     } catch(e: any) {
         log(`Error on PUT \`/users/bulk\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// List all users in the database
+// requires at least a teacher account or above
+web_server.get("/users", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const users = await db_users.find({});
+        
+        return res.status(200).json({
+            success: true,
+            data: users.map(x => x.toObject({ flattenObjectIds: true })),
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/users\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });

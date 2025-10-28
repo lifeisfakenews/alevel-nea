@@ -1,0 +1,30 @@
+table {
+    width: 100%;
+}
+thead {
+    background: var(--nea-clr-dark-800);
+}
+tbody:is(:empty, :not(:has(tr))) {
+    position: relative;
+    height: 5rem;
+    
+    &::before {
+        content: attr(data-table-empty);
+        border-bottom: .1rem solid var(--nea-clr-dark-800);
+        padding-block: 1.5rem;
+        position: absolute;
+        inset: 0;
+        text-align: center;
+        font-size: 2rem;
+    }
+}
+th {
+    padding: .3rem 1rem;
+    text-align: start;
+    color: #fff;
+}
+td {
+    border-bottom: .1rem solid var(--nea-clr-dark-800);
+    padding: .3rem 1rem;
+    width: calc(100% / var(--_col-count));
+}

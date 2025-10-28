@@ -1,3 +1,10 @@
+export enum UserRole {
+    STUDENT,
+    TEACHER,
+    IT,
+    SENIOR,
+}
+
 export type User = {
     id: string;
     created_at: Date;
@@ -6,9 +13,11 @@ export type User = {
     username: string;
     password: string;
     name: string;
-    role: number;
+    role: UserRole;
     sessions: {
         id: string;
+        created_at: Date;
+        
         token: string;
         expiry: Date;
     }[];

@@ -1,0 +1,264 @@
+---
+
+import request from "@/lib/request";
+import { type User, UserRole } from "@/lib/types";
+
+
+import Layout from "@/layouts/Primary.astro";
+import Button from "@/components/Button.astro";
+import Dropdown from "@/components/Dropdown.astro";
+
+const result = await request<User[]>("users", "GET", undefined, Astro);
+let users:User[] = [];
+
+if (result.success) users = result.data;
+
+//sort users by role then alphabetically
+users.sort((a,b) => {
+	if (a.role !== b.role) return a.role - b.role;
+	return a.name.localeCompare(b.name);
+})
+
+const roles = {
+	[UserRole.STUDENT]: "Student",
+	[UserRole.TEACHER]: "Teacher",
+	[UserRole.IT]: "IT Staff",
+	[UserRole.SENIOR]: "Senior Staff",
+} as const;
+
+---
+
+<Layout title="User Management">
+	<div class="flex v-center">
+		<div class="push-right">
+			<Button id="addUserButton" text="Add User" icon="bx bx-plus" theme="dark" modifiers={["no-mgi"]} />
+		</div>
+	</div>
+	<div class="flex v-center" style="margin-block: 1rem">
+		<input type="search" placeholder="Search users" class="input input-search" id="searchInput" />
+		<div class="push-right flex v-center gap-100">
+			<select class="input input-select" id="roleSelect" placeholder="Role">
+				<option value=""></option>
+				<option value="0">Students</option>
+				<option value="1">Teachers</option>
+				<option value="2">IT Staff</option>
+				<option value="3">Senior Staff</option>
+			</select>
+			<select class="input input-select" id="detailSelect">
+				<option value=""></option>
+				<optgroup label="Staff">
+					<option value="on_duty">On Duty</option>
+					<option value="off_duty">Off Duty</option>
+				</optgroup>
+				<optgroup label="Students">
+					<option value="no_restriction">No Restrictions</option>
+					<option value="daily_restriction">Daily Restriction</option>
+					<option value="class_restriction">Class Restriction</option>
+					<option value="both_restriction">Both Restrictions</option>
+				</optgroup>
+			</select>
+		</div>
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<th data-table-column="select">
+					<label class="bulk-select">
+						<input type="checkbox" data-table-control />
+					</label>
+				</th>
+				<th>User</th>
+				<th>Role</th>
+				<th>Last Login</th>
+				<th>Details</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody data-table-empty="No users found">
+			{users.map(user => {
+				const most_recent_session = user.sessions ? user.sessions[user.sessions.length - 1] : null;
+				const restriction_filter_value = user.restriction_daily && user.restriction_class ? "both" : user.restriction_daily ? "daily" : user.restriction_class ? "class" : "no";
+				return <tr data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value}>
+					<td data-table-column="select">
+						<label class="bulk-select">
+							<input type="checkbox" />
+						</label>
+					</td>
+					<td>
+						<p class="user-name">{user.name}</p>
+						<p class="user-subtext">{user.username}</p>
+					</td>
+					<td>
+						<p class="user-role" data-user-role={user.role}>{roles[user.role]}</p>
+					</td>
+					<td>
+						<p>{most_recent_session?.created_at ? new Date(most_recent_session.created_at).toLocaleDateString() : "Never"}</p>
+						<p class="user-subtext smaller">Created {new Date(user.created_at).toLocaleDateString()}</p>
+					</td>
+					<td>
+						{
+							user.role === UserRole.STUDENT ? <>
+								{user.restriction_daily ? <p class="user-subtext">{user.restriction_daily} per day</p> : ""}
+								{user.restriction_class ? <p class="user-subtext">{user.restriction_class} per class</p> : ""}
+								{!user.restriction_class && !user.restriction_daily ? <p class="user-subtext">No restrictions</p> : ""}
+							</> : user.on_duty ? <p class="user-onduty">On Duty</p> : ""
+						}
+					</td>
+					<td>
+						<Dropdown id={"userActions__" + user.id} three_dots>
+							<button data-user-action="view">View Details</button>
+							<button data-user-action="edit">Edit</button>
+							<hr />
+							<button data-user-action="delete">Delete</button>
+						</Dropdown>
+					</td>
+				</tr>
+			})}
+		</tbody>
+	</table>
+</Layout>
+
+<style>
+	.user-name {
+		font-weight: 800;
+		font-size: 1.8rem;
+		color: var(--nea-clr-text-100);
+	}
+	.user-subtext {
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-600);
+
+		&.smaller {
+			font-size: 1.2rem;
+		}
+	}
+
+	.user-role {
+
+		&[data-user-role="0"] {
+			color: var(--nea-clr-danger-400);
+		}
+		&[data-user-role="1"] {
+			color: var(--nea-clr-warning-400);
+		}
+		&[data-user-role="2"] {
+			color: var(--nea-clr-success-400);
+		}
+		&[data-user-role="3"] {
+			color: var(--nea-clr-primary-400);
+		}
+	}
+
+	.user-onduty {
+		background: var(--nea-clr-dark-900);
+		border: .1rem solid var(--nea-clr-primary-400);
+		border-radius: 100vmax;
+		padding: .3rem .8rem;
+		width: fit-content;
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-100);
+	}
+
+	:is(th:first-child, th:last-child) {
+		width: 1.4rem;
+	}
+
+
+	.bulk-select {
+        border: .1rem solid #5f5f5f;
+        border-radius: .4rem;
+        position: relative;
+        display: block;
+        width: 1.6rem;
+        aspect-ratio: 1 / 1;
+        cursor: pointer;
+    } 
+    .bulk-select:has(input:is(:checked, [data-item-selected="mixed"])) {
+        background: var(--nea-clr-primary-400);
+        border-color: var(--nea-clr-primary-400);
+    }
+    .bulk-select:has(input:not([data-item-selected="mixed"]):checked)::after {
+        content: "";
+        border-right: .2rem solid var(--nea-clr-text-100);
+        border-bottom: .2rem solid var(--nea-clr-text-100);
+        margin: auto;
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: .5rem;
+        aspect-ratio: 1 / 2;
+        rotate: 45deg;
+        translate: -.1rem -.1rem;
+    }
+    .bulk-select:has(input[data-item-selected="mixed"])::after {
+        content: "";
+        background: var(--nea-clr-text-100);
+        border-radius: .2rem;
+        margin: auto;
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: calc(100% - .6rem);
+        aspect-ratio: 2 / 1;
+    }
+    .bulk-select input {
+        appearance: none;
+        margin: 0;
+        position: absolute;
+    }
+</style>
+
+<script>
+	let search_query = "", role_filter = "", detail_filter = "";
+	let role_filter_set_automatically = false;
+
+	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
+	const role_select = document.querySelector("#roleSelect") as HTMLSelectElement;
+	const detail_select = document.querySelector("#detailSelect") as HTMLSelectElement;
+
+	search_input.addEventListener("input", () => {
+		search_query = search_input.value;
+		filterTable();
+	});
+	role_select.addEventListener("change", () => {
+		role_filter = role_select.value;
+		role_filter_set_automatically = false;
+		filterTable();
+	});
+	detail_select.addEventListener("change", () => {
+		detail_filter = detail_select.value;
+		// apply a filter for student accounts if a restriction based filter is applied
+		if (detail_filter.endsWith("_restriction")) {
+			if (role_select.value !== "0") role_filter_set_automatically = true;
+			role_select.value = "0";
+			role_filter = "0";
+		} else if (role_filter_set_automatically && role_filter === "0") {
+			role_select.value = "";
+			role_filter = "";
+		}
+		filterTable();
+	});
+
+	function filterTable() {
+		const table = document.querySelector("table") as HTMLTableElement;
+		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
+			const detail_filter_type = detail_filter.split("_")[1];
+
+			const row_name = row.dataset.userName;
+			const row_role = row.dataset.userRole;
+			const row_detail = detail_filter_type === "restriction" ? row.dataset.userRestriction : row.dataset.userOnduty;
+
+			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
+			const matches_role = role_filter === "" ? true : row_role === role_filter;
+			const matches_detail = detail_filter === "" ? true : detail_filter.split("_")[0] === row_detail;
+
+			// if the row matches all filters, show it, otherwise hide it
+			if (matches_search && matches_role && matches_detail) {
+				row.style.display = "";
+			} else {
+				row.style.display = "none";
+			}
+		}
+	}
+
+</script>

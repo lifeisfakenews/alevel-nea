@@ -10,6 +10,7 @@ const { title } = Astro.props;
 const { user } = Astro.locals;
 
 import "@/styles/base.css";
+import "@/styles/table.css";
 
 ---
 
@@ -35,6 +36,9 @@ import "@/styles/base.css";
         <header class="flex h-center">
             <div class="flex f1 v-center">
                 <p class="title">{title}</p>
+                <nav class="flex v-center gap-100">
+                    <a href="/users">User Management</a>
+                </nav>
                 <div class="push-right">
                     {user ? <Dropdown id="navAccount" label={user.name}>
                         <hr />
@@ -53,15 +57,23 @@ import "@/styles/base.css";
     header {
         border-bottom: .1rem solid var(--nea-clr-dark-900);
         padding: 2rem;
+        position: relative;
 
         & > div {
             max-width: 120rem;
         }
 
         & .title {
+            margin-right: 2rem;
             font-weight: 800;
             font-size: 2.5rem;
             color: var(--nea-clr-text-100);
+        }
+
+        & nav {
+            position: absolute;
+            inset: auto 50% auto auto;
+            translate: 50% 0;
         }
     }
 

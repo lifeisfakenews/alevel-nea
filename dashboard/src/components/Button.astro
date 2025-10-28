@@ -4,7 +4,6 @@ type Modifiers = "wrap-text" | "no-mg" | "no-mgb" | "no-mgi" | "w-100" | "no-flo
 
 export type Props = {
     text?: string;
-    icon?: string;
     loader?: boolean;
     theme: "primary" | "dark" | "inline";
     type?: "submit" | "button" | "reset";
@@ -19,20 +18,18 @@ export type Props = {
     [key: `data-${string}`]: string;
 }
 
-const { text, icon, loader = false, theme, type = "button", disabled = false, href, target = "", modifiers = [], id, className, ...attrs } = Astro.props as Props;
+const { text, loader = false, theme, type = "button", disabled = false, href, target = "", modifiers = [], id, className, ...attrs } = Astro.props as Props;
 
 ---
 
 {href ? 
 <a href={href} target={target} data-theme={theme} aria-disabled={disabled} class={className + " block-link"} data-modifiers={modifiers.join(" ")} id={id} {...attrs}>
     {loader ? <div class="loader" aria-hidden="true"></div> : ""}
-    {icon ? <i class={`bx ${icon}`}></i> : ""}
     {text ? <span>{text}</span> : <slot />}
 </a>
 : 
 <button type={type} data-theme={theme} disabled={disabled} aria-disabled={disabled} class={className} data-modifiers={modifiers.join(" ")} id={id} {...attrs}>
     {loader ? <div class="loader" aria-hidden="true"></div> : ""}
-    {icon ? <i class={`bx ${icon}`}></i> : ""}
     {text ? <span>{text}</span> : <slot />}
 </button>
 }
@@ -133,15 +130,6 @@ const { text, icon, loader = false, theme, type = "button", disabled = false, hr
         font-size: inherit;
         color: inherit;
         transition: .3s
-    }
-
-    i {
-        background: var(--nea-clr-button-600);
-        margin-right: 1rem;
-        margin-left: calc(-1 * var(--_padding-inline));
-        margin-block: calc(-1 * var(--_padding-block));
-        padding: var(--_padding-block) calc(var(--_padding-inline) / 2);
-        font-size: var(--nea-fs-800);
     }
 
     .loading .loader {opacity: 1}
