@@ -1,5 +1,10 @@
 ---
 
+import Dropdown from "@/components/Dropdown.astro";
+
+import request from "@/lib/request";
+import { type User } from "@/lib/types";
+
 export type Props = {
     title: string;
 }
@@ -8,9 +13,11 @@ const { title } = Astro.props;
 
 import "@/styles/base.css";
 
+const result = await request<User>("users/@me", "GET", undefined, Astro);
+let user:User|null = null;
+if (result.success) user = result.data;
 
 ---
-
 
 <html lang="en">
     <head>
@@ -35,7 +42,10 @@ import "@/styles/base.css";
             <div class="flex f1 v-center">
                 <p class="title">{title}</p>
                 <div class="push-right">
-                    <a href="/login" class="button primary">Login</a>
+                    {user ? <Dropdown id="navAccount" label={user.name}>
+                        <hr />
+                        <button id="navLogout">Logout</button>
+                    </Dropdown> : <a href="/login" class="button primary">Login</a>}
                 </div>
             </div>
         </header>

@@ -1,3 +1,4 @@
+import { type AstroGlobal } from "astro";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -7,8 +8,17 @@ type ErrorResponse = { success: false, error: string };
 type Response<T> = SuccessResponse<T> | ErrorResponse;
 
 // send a request to the API
-export default async function request<T>(url: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: any): Promise<Response<T>> {
+export default async function request<T>(url: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: any, Astro?: AstroGlobal): Promise<Response<T>> {
     try {
+        // if Astro is defined, we are on the server side, otherwise we are on client
+        // fetching cookies from server is with Astro.cookies, client is with document.cookie
+        let token:string | undefined;
+        if (Astro) {
+            token = Astro.cookies.get("token")?.value;
+        } else {
+            token = document.cookie.split("; ").find(cookie => cookie.startsWith("token="))?.split("=")[1];
+        };
+
         const request = await fetch(`${BASE_URL}/${url}`, {
             method: method,
             headers: {
@@ -16,6 +26,7 @@ export default async function request<T>(url: string, method: "GET" | "POST" | "
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
                 "Accept": "application/json",
+                "Authorization": token ?? "",
             },
             body: body ? JSON.stringify(body) : undefined,
         });
@@ -27,7 +38,7 @@ export default async function request<T>(url: string, method: "GET" | "POST" | "
             };
         } else if (request.status === 401 || request.status === 403) {
             // 401 and 403 are returned if the user isn't authorized or logged in, so send them to the login page
-            window.location.href = "/login";
+            if (!Astro) window.location.href = "/login";
             return { success: false, error: "Unauthorized" };
         } else if (request.status >= 500) {
             // server error, log details to console for debugging

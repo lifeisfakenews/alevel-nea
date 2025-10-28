@@ -1,0 +1,147 @@
+---
+export interface Props {
+	id: string;
+	label?: string;
+	three_dots?: boolean;
+}
+
+const { id, label = "", three_dots = false } = Astro.props;
+---
+
+<div class="dropdown" id={id + "Drop"}>
+	<button class="toggle | nostyles" id={id + "Button"} data-dropdown-button>
+		{three_dots ? <i class="bx bx-dots-vertical-rounded"></i> : (<span>{label}</span> <i class="bx bx-chevron-down" data-dropdown-rotate></i>)}
+	</button>
+	<div class="menu">
+		<slot/>
+	</div>
+</div>
+
+<script>
+    // add listeners for when a dropdown is clicked
+    const dropdowns = document.querySelectorAll(".dropdown") as NodeListOf<HTMLDivElement>;
+    dropdowns.forEach(dropdown => {
+        const button = dropdown.querySelector("[data-dropdown-button]") as HTMLButtonElement;
+        button.addEventListener("click", () => {
+            const dropdown_is_expanded = dropdown.getAttribute("aria-expanded") === "true";
+            //the general listener below takes care of closing the dropdown
+            if (!dropdown_is_expanded) {
+                const menu = dropdown.querySelector(".menu") as HTMLElement;
+                menu.setAttribute("aria-expanded", "true");
+                // rotate the arrow when open
+                const icon = dropdown.querySelector("[data-dropdown-rotate]") as HTMLElement;
+                if (icon) icon.dataset.dropdownRotate = "true";
+            };
+        });
+    });
+
+    //automatically close any dropdowns if the user clicks outside of one
+	window.addEventListener("click", event => {
+        // attempt to fetch the closest relative to the click that is a dropdown (ie if the user clicks on a dropdown item it will not close the dropdown)
+		const target = event.target as HTMLElement;
+		const clicked_dropdown = target.closest(".dropdown") as HTMLDivElement;
+
+        dropdowns.forEach(dropdown => {
+            // if no dropdown was clicked on, or the clicked on dropdown isnt this one, close it
+            if (!clicked_dropdown || dropdown.id !== clicked_dropdown.id) {
+                const menu = dropdown.querySelector(".menu") as HTMLElement;
+                menu.setAttribute("aria-expanded", "false");
+                // rotate the arrow when closed
+                const icon = dropdown.querySelector("[data-dropdown-rotate]") as HTMLElement;
+                if (icon) icon.dataset.dropdownRotate = "false";
+            }
+        });
+	});
+</script>
+<style>
+	.dropdown {
+		position: relative;
+	}
+	.toggle {
+		display: flex;
+		align-items: center;
+		gap: .5rem;
+		color: var(--nea-clr-text-100);
+		cursor: pointer;
+
+        [data-dropdown-rotate] {
+            transition: .3s;
+            text-decoration: none;
+
+            &:is(:hover, :focus-visible) {
+                text-decoration: none;
+            }
+            &[data-dropdown-rotate="true"] {
+                transform: rotate(180deg);
+            }
+        }
+	}
+	.menu {
+		background: var(--nea-clr-drop-400);
+		border-radius: .5rem;
+		box-shadow: 0 .5rem 1.6rem var(--nea-clr-dark-900);
+		margin: 0;
+		padding: 1rem;
+		position: absolute;
+		right: 0;
+		z-index: 6;
+		min-width: 16rem;
+		width: max-content;
+		transition: .5s;
+		opacity: 0;
+		pointer-events: none;
+		transform: skewX(3deg) translate(1rem, 3rem);
+
+        &[aria-expanded="true"] {
+            opacity: 1;
+            transform: none;
+            pointer-events: all;
+        }
+
+        h6 {
+            margin-block: .5rem;
+            display: block;
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--nea-clr-secondary-400);
+        }
+
+        a, button {
+            background: transparent;
+            border: none;
+            border-radius: .3rem;
+            margin: 0;
+            padding: .8rem;
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            width: 100%;
+            font: inherit;
+            line-height: 1;
+            text-decoration: none;
+            text-align: left;
+            font-weight: 300;
+            font-size: 1.5rem;
+            color: var(--nea-clr-text-200);
+            transition: .3s;
+            cursor: pointer;
+
+            &[data-dropdown-style="danger"] {
+                color: var(--nea-clr-danger-400);
+            }
+
+            &:is(:hover, :focus-visible) {
+                background: var(--nea-clr-drop-800);
+                text-decoration: none;
+            }
+        }
+
+        hr {
+            background: var(--nea-clr-drop-800);
+            border: none;
+            border-radius: .2rem;
+            margin-block: .4rem;
+            height: .1rem;
+        }
+	}
+</style>
