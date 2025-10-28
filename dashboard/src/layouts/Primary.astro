@@ -85,3 +85,13 @@ if (result.success) user = result.data;
         margin-bottom: 0;
     }
 </style>
+
+<script>
+    const logout_button = document.querySelector("#navLogout") as HTMLButtonElement;
+    if (logout_button) logout_button.addEventListener("click", () => {
+        // remove the token cookie
+        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;";
+        // redirect to the login page
+        window.location.href = "/login";
+    });
+</script>
