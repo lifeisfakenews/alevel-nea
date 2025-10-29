@@ -167,6 +167,10 @@ const roles = {
 			<p class="detail-value | push-right" data-user-detail="on_duty"></p>
 		</div>
 	</div>
+	<div class="flex v-center gap-200">
+		<Button id="userDeleteButton" text="Delete User" theme="dark" modifiers={["no-mgi"]} />
+		<Button id="userEditButton" text="Edit User" theme="dark" modifiers={["no-mgi"]} />
+	</div>
 </Modal>
 
 <Modal id="userCreateModal" title="New User">
@@ -486,7 +490,8 @@ const roles = {
 
 			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
 			const matches_role = role_filter === "" ? true : row_role === role_filter;
-			const matches_detail = detail_filter === "" ? true : detail_filter.split("_")[0] === row_detail;
+			// match users with both restrrictions correctly
+			const matches_detail = detail_filter === "" ? true : (detail_filter.split("_")[0] === row_detail || (detail_filter.split("_")[0] !== "no" && row_detail === "both") );
 
 			// if the row matches all filters, show it, otherwise hide it
 			if (matches_search && matches_role && matches_detail) {
@@ -540,6 +545,8 @@ const roles = {
 			ids.push(table_row.dataset.userId!);
 		});
 
+		if (!confirm(`Are you sure you want to delete ${ids.length} users?`)) return;
+
 		const result = await request<void>("users/bulk", "DELETE", {
 			ids: ids,
 		});
@@ -569,6 +576,8 @@ const roles = {
 			return null;
 		};
 	};
+
+	let current_active_user_id: string | null = null;
 
 	const user_details_buttons = Array.from(document.querySelectorAll("[data-user-action='view']") as NodeListOf<HTMLButtonElement>);
 	user_details_buttons.forEach(button => {
@@ -601,6 +610,8 @@ const roles = {
 				(document.querySelector("[data-user-detail='on_duty']") as HTMLParagraphElement).innerText = `${user.on_duty ? "On Duty" : "Off Duty"}`;
 			};
 
+			current_active_user_id = user._id;
+
 			openModal("userDetailsModal");
 		});
 	});
@@ -622,8 +633,6 @@ const roles = {
 			};
 		});
 	});
-
-	let current_edit_user_id: string | null = null;
 
 	const user_edit_buttons = Array.from(document.querySelectorAll("[data-user-action='edit']") as NodeListOf<HTMLButtonElement>);
 	user_edit_buttons.forEach(button => {
@@ -652,7 +661,7 @@ const roles = {
 				user_edit_teacher_details.style.display = "";
 			};
 
-			current_edit_user_id = user._id;
+			current_active_user_id = user._id;
 
 			openModal("userEditModal");
 		});
@@ -736,7 +745,7 @@ const roles = {
 			};
 
 			if (valid) {
-				const result = await request<User>(`users/${current_edit_user_id}`, "PATCH", {
+				const result = await request<User>(`users/${current_active_user_id}`, "PATCH", {
 					username: username_input.value,
 					password: password_input.value,
 					name: name_input.value,
@@ -836,10 +845,10 @@ const roles = {
 				if (skip_header_row) {
 					// attempt to find the columns by name
 					for (const column of rows[0].split(",")) {
-						if (column.trim().toLowerCase() === "username") username_column_index = rows[0].indexOf(column);
-						if (column.trim().toLowerCase() === "name") name_column_index = rows[0].indexOf(column);
-						if (column.trim().toLowerCase() === "password") password_column_index = rows[0].indexOf(column);
-						if (column.trim().toLowerCase() === "role") role_column_index = rows[0].indexOf(column);
+						if (column.trim().toLowerCase() === "username") username_column_index = rows[0].split(",").indexOf(column);
+						if (column.trim().toLowerCase() === "name") name_column_index = rows[0].split(",").indexOf(column);
+						if (column.trim().toLowerCase() === "password") password_column_index = rows[0].split(",").indexOf(column);
+						if (column.trim().toLowerCase() === "role") role_column_index = rows[0].split(",").indexOf(column);
 					};
 					//remove the first (header) row
 					rows = rows.slice(1);
@@ -916,6 +925,52 @@ const roles = {
 			error.innerText = "Failed to create users. An unexpected error occured.";
 		};
 		button.classList.remove("loading");
+	});
+
+
+	const user_delete_button = document.querySelector("#userDeleteButton") as HTMLButtonElement;
+	user_delete_button.addEventListener("click", async() => {
+		const user_id = current_active_user_id!;
+		if (!confirm(`Are you sure you want to delete ${user_id}?`)) return;
+
+		const result = await request<void>(`users/${user_id}`, "DELETE");
+		if (result.success) {
+			location.reload();
+		} else {
+			alert(`Error deleting user:\n ${result.error}`);
+		};
+	});
+
+	const user_edit_button = document.querySelector("#userEditButton") as HTMLButtonElement;
+	user_edit_button.addEventListener("click", async() => {
+		const user_id = current_active_user_id!;
+		const user = await fetchUser(user_id);
+		if (!user) return;
+
+		(document.querySelector("#userEditUsername") as HTMLInputElement).value = user.username;
+		
+		(document.querySelector("#userEditName") as HTMLInputElement).value = user.name;
+		(document.querySelector("#userEditRole") as HTMLSelectElement).value = `${user.role}`;
+		(document.querySelector("#userEditOnDuty") as HTMLSelectElement).value = user.on_duty ? "on_duty" : "off_duty";
+		(document.querySelector("#userEditRestrictionDaily") as HTMLInputElement).value = user.restriction_daily?.toString() ?? "";
+		(document.querySelector("#userEditRestrictionClass") as HTMLInputElement).value = user.restriction_class?.toString() ?? "";
+		
+		const user_edit_student_details = document.querySelector("#userEditStudentDetails") as HTMLDivElement;
+		const user_edit_teacher_details = document.querySelector("#userEditTeacherDetails") as HTMLDivElement;
+		if (user.role === UserRole.STUDENT) {
+			user_edit_student_details.style.display = "";
+			user_edit_teacher_details.style.display = "none";
+
+			(document.querySelector("#userEditRestrictionDaily") as HTMLInputElement).value = user.restriction_daily?.toString() ?? "";
+			(document.querySelector("#userEditRestrictionClass") as HTMLInputElement).value = user.restriction_class?.toString() ?? "";
+		} else {
+			user_edit_student_details.style.display = "none";
+			user_edit_teacher_details.style.display = "";
+		};
+
+		current_active_user_id = user._id;
+
+		openModal("userEditModal");
 	});
 
 </script>
