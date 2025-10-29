@@ -8,7 +8,7 @@ type ErrorResponse = { success: false, error: string };
 type Response<T> = SuccessResponse<T> | ErrorResponse;
 
 // send a request to the API
-export default async function request<T>(url: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: any, Astro?: AstroGlobal|APIContext): Promise<Response<T>> {
+export default async function request<T>(url: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", body?: any, Astro?: AstroGlobal|APIContext): Promise<Response<T>> {
     try {
         // if Astro is defined, we are on the server side, otherwise we are on client
         // fetching cookies from server is with Astro.cookies, client is with document.cookie

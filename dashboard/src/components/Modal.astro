@@ -1,0 +1,97 @@
+---
+
+export type Props = {
+    id: string;
+    title: string;
+}
+
+const { id, title } = Astro.props;
+
+
+---
+
+<dialog id={id} class="modal" style="min-width: min(calc(100% - 10rem), 80rem)">
+    <button class="close | nostyles pointer" onclick="this.parentElement.close();" aria-label="close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"></path>
+        </svg>
+    </button>
+
+    <div class="modal-content">
+        <h3>{title}</h3>
+
+        <slot />
+    </div>
+</dialog>
+
+<script is:inline>
+    function openModal(id) {
+        try {
+            const modal = document.querySelector(`#${id}`);
+            modal.showModal();
+        } catch(e) {
+            alert("Failed to open modal with id: " + id);
+        }
+    };
+    function closeModal(id) {
+        try {
+            const modal = document.querySelector(`#${id}`);
+            modal.close();
+        } catch(e) {
+            alert("Failed to close modal with id: " + id);
+        }
+    }
+</script>
+
+<script>
+    declare global {
+        function openModal(id: string): void;
+        function closeModal(id: string): void;
+    }
+
+    document.addEventListener("click", e => {
+        const target = e.target as HTMLDialogElement;
+        if (!target.dataset.modalDismissable || target.dataset.modalDismissable === "false") return;
+        if (target.tagName == "DIALOG") target.close();
+    });
+</script>
+
+<style>
+    dialog {
+        background: #1d1d1d;
+        border: 1px solid #2c2c2c;
+        border-radius: .8rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        padding: 3rem;
+        position: fixed;
+        inset: 50% auto auto 50%;
+        translate: -50% -50%;
+        width: min(calc(100% - 200px), 400px);
+        font: inherit;
+        color: inherit;
+        overflow: initial;
+    }
+    dialog::backdrop {
+        background-color: #0003;
+        backdrop-filter: blur(2px);
+    }
+    dialog h3 {
+        color: #fff;
+        font-size: 3rem;
+    }
+    dialog .close {
+        position: absolute;
+        inset: 1rem 1rem auto auto;
+        height: 4rem;
+        aspect-ratio: 1 / 1;
+        color: var(--vm-clr-text-200);
+        transition: .3s;
+    }
+
+    dialog thead {
+        background: #2d2d2d;
+    }
+    dialog td {
+        border-bottom: .1rem solid #2d2d2d;
+    }
+</style>

@@ -30,7 +30,7 @@ function handleError(err: any) {
 };
 
 // perform required checks for usernames when account is created
-async function validateUsername(username: string) {
+async function validateUsername(username: string, edit_user_id?: string) {
     if (!username) return {valid: false, error: "No username provided"};
     if (username.length < 3 || username.length >= 24) return {valid: false, error: "Username must be between 3 and 24 characters"};
     // the regex matches to lower case letters, numbers and dashes
@@ -38,7 +38,7 @@ async function validateUsername(username: string) {
     if (!username.match(/^[a-z0-9-]+$/)) return {valid: false, error: "Username can only contain letters, numbers, and dashes"};
 
     const user = await db_users.findOne({ username });
-    if (user) return {valid: false, error: "Username already taken"};
+    if (user && user._id.toString() !== edit_user_id) return {valid: false, error: "Username already taken"};
 
     return {valid: true, error: null};
 };
@@ -376,6 +376,57 @@ web_server.get("/users/:user_id", async(req, res) => {
         });
     } catch(e: any) {
         log(`Error on GET \`/users/:user_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+//edit a user. All parameters optional
+// required senior staff or it staff
+web_server.patch("/users/:user_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { user_id } = req.params;
+        const user = await db_users.findById(user_id);
+        if (!user) return res.status(404).send("User not found");
+
+        // if a new password is provided, validate that + hash it:
+        let new_password:string | null = null;
+        if (req.body.password) {
+            const password_valid = validatePassword(req.body.password);
+            if (!password_valid.valid) return res.status(400).send(password_valid.error);
+            new_password = await bcrypt.hash(req.body.password, 10);
+        };
+        // if a new username is provided, validate that:
+        if (req.body.username) {
+            const username_valid = await validateUsername(req.body.username, user_id);
+            if (!username_valid.valid) return res.status(400).send(username_valid.error);
+        };
+        //if a role is provided, validate that:
+        if (req.body.role) {
+            if (isNaN(req.body.role)) return res.status(400).send("Invalid role");
+            if (req.body.role < 0 || req.body.role > 3) return res.status(400).send("Invalid role");
+        };
+
+        const result = await db_users.findByIdAndUpdate(user_id, {
+            username: req.body.username ?? user.username,
+            password: new_password ?? user.password,
+            name: req.body.name ?? user.name,
+            role: "role" in req.body ? req.body.role : user.role,
+            on_duty: "on_duty" in req.body ? req.body.on_duty : user.on_duty,
+            restriction_daily: "restriction_daily" in req.body ? req.body.restriction_daily : user.restriction_daily,
+            restriction_class: "restriction_class" in req.body ? req.body.restriction_class : user.restriction_class,
+        }, { new: true });
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on PATCH \`/users/:user_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });

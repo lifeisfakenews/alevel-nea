@@ -7,6 +7,7 @@ import { type User, UserRole } from "@/lib/types";
 import Layout from "@/layouts/Primary.astro";
 import Button from "@/components/Button.astro";
 import Dropdown from "@/components/Dropdown.astro";
+import Modal from "@/components/Modal.astro";
 
 const result = await request<User[]>("users", "GET", undefined, Astro);
 let users:User[] = [];
@@ -31,6 +32,8 @@ const roles = {
 <Layout title="User Management">
 	<div class="flex v-center">
 		<div class="push-right">
+			<Button id="bulkCreateUserButton" text="Bulk Create Users" theme="dark" modifiers={["no-mgi"]} />
+			
 			<Button id="addUserButton" text="Add User" theme="dark" modifiers={["no-mgi"]} />
 		</div>
 	</div>
@@ -118,6 +121,155 @@ const roles = {
 	</table>
 </Layout>
 
+<Modal id="userDetailsModal" title="User Details">
+	<div class="detail-card">
+		<h3 class="detail-heading">Overview</h3>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Username</p>
+			<p class="detail-value | push-right" data-user-detail="username"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Name</p>
+			<p class="detail-value | push-right" data-user-detail="name"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Role</p>
+			<p class="detail-value | push-right user-role" data-user-detail="role"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Last Login</p>
+			<p class="detail-value | push-right" data-user-detail="last_login"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Account Created</p>
+			<p class="detail-value | push-right" data-user-detail="created_at"></p>
+		</div>
+	</div>
+	<div class="detail-card" id="userDetailsStudent">
+		<h3 class="detail-heading">Student Details</h3>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Daily Pass Limit</p>
+			<p class="detail-value | push-right" data-user-detail="restriction_daily"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">per Class Pass Limit</p>
+			<p class="detail-value | push-right" data-user-detail="restriction_class"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Failed Pass Attempts</p>
+			<p class="detail-value | push-right" data-user-detail="failed_pass_attempts"></p>
+		</div>
+	</div>
+	<div class="detail-card" id="userDetailsTeacher">
+		<h3 class="detail-heading">Teacher Details</h3>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Duty Satus</p>
+			<p class="detail-value | push-right" data-user-detail="on_duty"></p>
+		</div>
+	</div>
+</Modal>
+
+<Modal id="userCreateModal" title="New User">
+	<form id="userCreateForm">
+		<label for="userCreateUsername" class="label">Username</label>
+		<input type="text" id="userCreateUsername" class="input" placeholder="Username" required data-username-input />
+
+		<label for="userCreatePassword" class="label">Password</label>
+		<input type="password" id="userCreatePassword" class="input" placeholder="Password" data-password-input />
+		<p id="userCreatePasswordError"></p>
+
+		<label for="userCreateName" class="label">Name</label>
+		<input type="text" id="userCreateName" class="input" placeholder="Name" required />
+
+		<label for="userCreateRole" class="label">Role</label>
+		<select id="userCreateRole" class="input input-select" required>
+			<option value="0">Student</option>
+			<option value="1">Teacher</option>
+			<option value="2">IT Staff</option>
+			<option value="3">Senior Staff</option>
+		</select>
+
+		<div class="flex v-center gap-200">
+			<Button type="submit" text="Save" theme="primary" />
+			<p class="input-error" id="userCreateError"></p>
+		</div>
+	</form>
+</Modal>
+
+<Modal id="userEditModal" title="Edit User">
+	<form id="userEditForm">
+		<label for="userEditUsername" class="label">Username</label>
+		<input type="text" id="userEditUsername" class="input" placeholder="Username" required data-username-input />
+
+		<label for="userEditPassword" class="label">Password</label>
+		<input type="password" id="userEditPassword" class="input" placeholder="Password" data-password-input />
+		<p id="userEditPasswordError">Leave blank to keep the same password</p>
+
+		<label for="userEditName" class="label">Name</label>
+		<input type="text" id="userEditName" class="input" placeholder="Name" required />
+
+		<label for="userEditRole" class="label">Role</label>
+		<select id="userEditRole" class="input input-select" required>
+			<option value="0">Student</option>
+			<option value="1">Teacher</option>
+			<option value="2">IT Staff</option>
+			<option value="3">Senior Staff</option>
+		</select>
+
+		<div id="userEditStudentDetails">
+			<label for="userEditRestrictionDaily" class="label">Daily Pass Limit</label>
+			<input type="number" id="userEditRestrictionDaily" class="input" placeholder="Daily Pass Limit" min="0" />
+	
+			<label for="userEditRestrictionClass" class="label">per Class Pass Limit</label>
+			<input type="number" id="userEditRestrictionClass" class="input" placeholder="per Class Pass Limit" min="0" />
+		</div>
+
+		<div id="userEditTeacherDetails">
+			<label for="userEditOnDuty" class="label">Duty Status</label>
+			<select id="userEditOnDuty" class="input input-select">
+				<option value="on_duty">On Duty</option>
+				<option value="off_duty">Off Duty</option>
+			</select>
+		</div>
+		<div class="flex v-center gap-200">
+			<Button type="submit" text="Save" theme="primary" />
+			<p class="input-error" id="userEditError"></p>
+		</div>
+	</form>
+</Modal>
+
+<Modal id="userBulkCreateModal" title="Bulk Create Users">
+	<form id="userBulkCreateForm">
+		<label for="userBulkCreateFile" class="label">File</label>
+		<input type="file" id="userBulkCreateFile" class="input" accept=".csv" />
+
+		<label for="userBulkCreateUsername" class="label">Skip header row?</label>
+		<div class="flex v-center">
+			<input type="checkbox" id="userBulkCreateSkipHeader" class="input" checked />
+			<p>Skips the first row of the file as this typically contains column names</p>
+		</div>
+
+		<label for="userBulkCreatePassword" class="label">Default Password</label>
+		<input type="password" id="userBulkCreatePassword" class="input" placeholder="Password" data-password-input />
+		<p id="userBulkCreatePasswordError">If your file doesn't have a password column, all users will be created with this password</p>
+
+		<label for="userBulkCreateRole" class="label">Default Role</label>
+		<select id="userBulkCreateRole" class="input input-select">
+			<option value="0">Student</option>
+			<option value="1">Teacher</option>
+			<option value="2">IT Staff</option>
+			<option value="3">Senior Staff</option>
+		</select>
+		<p>If your file doesn't have a role column, all users will be created with this role</p>
+
+		
+		<div class="flex v-center gap-200">
+			<Button type="submit" text="Save" theme="primary" />
+			<p class="input-error" id="userBulkCreateError"></p>
+		</div>
+	</form>
+</Modal>
+
 <div class="bulk-select-wrapper">
 	<div class="bulk-select-row | flex v-center gap-100">
 		<p>
@@ -126,7 +278,7 @@ const roles = {
 		</p>
 		<button class="bulk-action | nostyles" data-bulk-action="clear">Clear</button>
 		<div class="push-right | flex v-center gap-100">
-			<button class="bulk-action | nostyles" data-bulk-action-style="clear" data-bulk-action="delete">Delete</button>
+			<button class="bulk-action | nostyles" data-bulk-action-style="delete" data-bulk-action="delete">Delete</button>
 		</div>
 	</div>
 </div>
@@ -185,40 +337,41 @@ const roles = {
         width: 1.6rem;
         aspect-ratio: 1 / 1;
         cursor: pointer;
+		
+		&:has(input:is(:checked, [data-item-selected="mixed"])) {
+			background: var(--nea-clr-primary-400);
+			border-color: var(--nea-clr-primary-400);
+		}
+		&:has(input:not([data-item-selected="mixed"]):checked)::after {
+			content: "";
+			border-right: .2rem solid var(--nea-clr-text-100);
+			border-bottom: .2rem solid var(--nea-clr-text-100);
+			margin: auto;
+			position: absolute;
+			inset: 0;
+			display: block;
+			width: .5rem;
+			aspect-ratio: 1 / 2;
+			rotate: 45deg;
+			translate: -.1rem -.1rem;
+		}
+		&:has(input[data-item-selected="mixed"])::after {
+			content: "";
+			background: var(--nea-clr-text-100);
+			border-radius: .2rem;
+			margin: auto;
+			position: absolute;
+			inset: 0;
+			display: block;
+			width: calc(100% - .6rem);
+			aspect-ratio: 2 / 1;
+		}
+		input {
+			appearance: none;
+			margin: 0;
+			position: absolute;
+		}
     } 
-    .bulk-select:has(input:is(:checked, [data-item-selected="mixed"])) {
-        background: var(--nea-clr-primary-400);
-        border-color: var(--nea-clr-primary-400);
-    }
-    .bulk-select:has(input:not([data-item-selected="mixed"]):checked)::after {
-        content: "";
-        border-right: .2rem solid var(--nea-clr-text-100);
-        border-bottom: .2rem solid var(--nea-clr-text-100);
-        margin: auto;
-        position: absolute;
-        inset: 0;
-        display: block;
-        width: .5rem;
-        aspect-ratio: 1 / 2;
-        rotate: 45deg;
-        translate: -.1rem -.1rem;
-    }
-    .bulk-select:has(input[data-item-selected="mixed"])::after {
-        content: "";
-        background: var(--nea-clr-text-100);
-        border-radius: .2rem;
-        margin: auto;
-        position: absolute;
-        inset: 0;
-        display: block;
-        width: calc(100% - .6rem);
-        aspect-ratio: 2 / 1;
-    }
-    .bulk-select input {
-        appearance: none;
-        margin: 0;
-        position: absolute;
-    }
 
 
 	.bulk-select-wrapper {
@@ -227,48 +380,73 @@ const roles = {
         display: block;
         transition: .3s;
         --_inline-inset: 20rem;
+		
+		.bulk-select-row {
+			background: var(--nea-clr-dark-900);
+			border: .1rem solid var(--nea-clr-dark-800);
+			box-shadow: 1rem 1rem .6rem rgba(0, 0, 0, .3),-.1rem -.1rem .5rem rgba(0, 0, 0, .3);
+			border-radius: .8rem;
+			margin-inline: var(--_inline-inset);
+			padding: 1rem;
+		}
+	
+		.bulk-select-wrapper p {
+			color: var(--nea-clr-text-600);
+		}
+		.bulk-select-count {
+			font-weight: 800;
+			color: var(--nea-clr-text-100);
+		}
+	
+		.bulk-action {
+			color: var(--nea-clr-text-100);
+			cursor: pointer;
+	
+			&:is(:hover, :focus-visible) {
+				text-decoration: underline;
+			}
+	
+			&[data-bulk-action-style="clear"] {
+				color: hsl(31, 87%, 50%);
+			}
+	
+			&[data-bulk-action-style="danger"] {
+				color: var(--nea-clr-danger-400);
+			}
+		}
     }
 
-    .bulk-select-row {
-        background: var(--nea-clr-dark-900);
-        border: .1rem solid var(--nea-clr-dark-800);
-        box-shadow: 1rem 1rem .6rem rgba(0, 0, 0, .3),-.1rem -.1rem .5rem rgba(0, 0, 0, .3);
-        border-radius: .8rem;
-        margin-inline: var(--_inline-inset);
-        padding: 1rem;
-    }
+	.detail-card {
+		border: .1rem solid var(--nea-clr-dark-400);
+		border-radius: .5rem;
+		padding: 1rem;
+		margin-bottom: 1rem;
 
-    .bulk-select-wrapper p {
-        color: var(--nea-clr-text-600);
-    }
-    .bulk-select-count {
-        font-weight: 800;
-        color: var(--nea-clr-text-100);
-    }
+		.detail-heading {
+			color: var(--nea-clr-primary-400);
+			font-size: 1.6rem;
+			margin-block: 0 .5rem;
+		}
 
-    .bulk-action {
-        color: var(--nea-clr-text-100);
-        cursor: pointer;
-
-        &:is(:hover, :focus-visible) {
-            text-decoration: underline;
-        }
-
-        &[data-bulk-action-style="clear"] {
-            color: hsl(31, 87%, 50%);
-        }
-
-        &[data-bulk-action-style="danger"] {
-            color: var(--nea-clr-danger-400);
-        }
-    }
+		.detail-label {
+			font-weight: 800;
+		}
+	}
 </style>
 
 <script>
 	import request from "@/lib/request";
+	import { type User, UserRole } from "@/lib/types";
 
 	let search_query = "", role_filter = "", detail_filter = "";
 	let role_filter_set_automatically = false;
+
+	const roles = {
+		[UserRole.STUDENT]: "Student",
+		[UserRole.TEACHER]: "Teacher",
+		[UserRole.IT]: "IT Staff",
+		[UserRole.SENIOR]: "Senior Staff",
+	} as const;
 
 	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
 	const role_select = document.querySelector("#roleSelect") as HTMLSelectElement;
@@ -376,6 +554,368 @@ const roles = {
 		} else {
 			alert(`Error delete users:\n ${result.error}`);
 		};
+	});
+
+	const user_cache = new Map<string, User>();
+	// fetch a user from the cache or the api
+	async function fetchUser(user_id: string) {
+		if (user_cache.has(user_id)) return user_cache.get(user_id)!;
+		const result = await request<User>(`users/${user_id}`, "GET");
+		if (result.success) {
+			user_cache.set(user_id, result.data);
+			return result.data;
+		} else {
+			alert(`Error fetching user details:\n ${result.error}`);
+			return null;
+		};
+	};
+
+	const user_details_buttons = Array.from(document.querySelectorAll("[data-user-action='view']") as NodeListOf<HTMLButtonElement>);
+	user_details_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const user_id = button.closest("tr")!.dataset.userId!;
+			const user = await fetchUser(user_id);
+			if (!user) return;
+
+			(document.querySelector("[data-user-detail='username']") as HTMLParagraphElement).innerText = user.username;
+			(document.querySelector("[data-user-detail='name']") as HTMLParagraphElement).innerText = user.name;
+			(document.querySelector("[data-user-detail='role']") as HTMLParagraphElement).innerText = roles[user.role];
+			(document.querySelector("[data-user-detail='role'") as HTMLParagraphElement).dataset.userRole = `${user.role}`;
+			(document.querySelector("[data-user-detail='last_login']") as HTMLParagraphElement).innerText = user.sessions?.length ? new Date(user.sessions[user.sessions.length - 1].created_at).toLocaleDateString() : "Never";
+			(document.querySelector("[data-user-detail='created_at']") as HTMLParagraphElement).innerText = new Date(user.created_at).toLocaleDateString();
+
+			// display or hide the student and teacher details cards based on the role
+			const student_details = document.querySelector("#userDetailsStudent") as HTMLDivElement;
+			const teacher_details = document.querySelector("#userDetailsTeacher") as HTMLDivElement;
+			if (user.role === UserRole.STUDENT) {
+				student_details.style.display = "";
+				teacher_details.style.display = "none";
+
+				(document.querySelector("[data-user-detail='restriction_daily']") as HTMLParagraphElement).innerText = `${user.restriction_daily ?? "Unset"}`;
+				(document.querySelector("[data-user-detail='restriction_class']") as HTMLParagraphElement).innerText = `${user.restriction_class ?? "Unset"}`;
+				(document.querySelector("[data-user-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = `${user.failed_pass_attempts ?? 0}`;
+			} else {
+				student_details.style.display = "none";
+				teacher_details.style.display = "";
+
+				(document.querySelector("[data-user-detail='on_duty']") as HTMLParagraphElement).innerText = `${user.on_duty ? "On Duty" : "Off Duty"}`;
+			};
+
+			openModal("userDetailsModal");
+		});
+	});
+
+	const user_delete_buttons = Array.from(document.querySelectorAll("[data-user-action='delete']") as NodeListOf<HTMLButtonElement>);
+	user_delete_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const table_row = button.closest("tr") as HTMLTableRowElement;
+			const user_id = table_row.dataset.userId!;
+			const user_name = table_row.dataset.userName!;
+
+			if (!confirm(`Are you sure you want to delete ${user_name}?`)) return;
+
+			const result = await request<void>(`users/${user_id}`, "DELETE");
+			if (result.success) {
+				table_row.remove();
+			} else {
+				alert(`Error deleting user:\n ${result.error}`);
+			};
+		});
+	});
+
+	let current_edit_user_id: string | null = null;
+
+	const user_edit_buttons = Array.from(document.querySelectorAll("[data-user-action='edit']") as NodeListOf<HTMLButtonElement>);
+	user_edit_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const table_row = button.closest("tr") as HTMLTableRowElement;
+			const user_id = table_row.dataset.userId!;
+
+			const user = await fetchUser(user_id);
+			if (!user) return;
+
+			(document.querySelector("#userEditUsername") as HTMLInputElement).value = user.username;
+			
+			(document.querySelector("#userEditName") as HTMLInputElement).value = user.name;
+			(document.querySelector("#userEditRole") as HTMLSelectElement).value = `${user.role}`;
+			(document.querySelector("#userEditOnDuty") as HTMLSelectElement).value = user.on_duty ? "on_duty" : "off_duty";
+			(document.querySelector("#userEditRestrictionDaily") as HTMLInputElement).value = user.restriction_daily?.toString() ?? "";
+			(document.querySelector("#userEditRestrictionClass") as HTMLInputElement).value = user.restriction_class?.toString() ?? "";
+			
+			const user_edit_student_details = document.querySelector("#userEditStudentDetails") as HTMLDivElement;
+			const user_edit_teacher_details = document.querySelector("#userEditTeacherDetails") as HTMLDivElement;
+			if (user.role === UserRole.STUDENT) {
+				user_edit_student_details.style.display = "";
+				user_edit_teacher_details.style.display = "none";
+			} else {
+				user_edit_student_details.style.display = "none";
+				user_edit_teacher_details.style.display = "";
+			};
+
+			current_edit_user_id = user._id;
+
+			openModal("userEditModal");
+		});
+	});
+
+	//perform required checks for passwords when account is created
+	function validatePassword(password: string) {
+		if (!password) return {valid: false, error: "No password provided"};
+		if (password.length < 6) return {valid: false, error: "Password must be at least 6 characters"};
+		if (!password.match(/[a-z]/)) return {valid: false, error: "Password must contain at least one lowercase letter"};
+		if (!password.match(/[A-Z]/)) return {valid: false, error: "Password must contain at least one uppercase letter"};
+		if (!password.match(/[0-9]/)) return {valid: false, error: "Password must contain at least one number"};
+		//The \W group matches any non-word character (i.e. symbols). _ must also be specified as it is considered a word character
+		if (!password.match(/[\W_]/)) return {valid: false, error: "Password must contain at least one special character"};
+		return {valid: true, error: null};
+	};
+
+	const username_inputs = Array.from(document.querySelectorAll("[data-username-input]") as NodeListOf<HTMLInputElement>);
+	username_inputs.forEach(input => {
+		input.addEventListener("input", () => {
+			input.classList.remove("invalid");
+			let user_input_value = input.value;
+			let new_value = user_input_value;
+			new_value = new_value.slice(0, 24);//cut off after 24 characters
+			new_value = new_value.toLowerCase();//lowercase the string (usernames should be case insensitive)
+			new_value = new_value.replace(" ", "-");//replace spaces with dashes
+			new_value = new_value.replace(/[^a-z0-9-]/g, "");//remove all non-alphanumeric characters
+			new_value = new_value.replace(/-+/g, "-");//replace all runs of - with a single -
+			input.value = new_value;
+			if (input.value?.length < 3) input.classList.add("invalid");
+		});
+	});
+
+	const password_inputs = Array.from(document.querySelectorAll("[data-password-input]") as NodeListOf<HTMLInputElement>);
+	password_inputs.forEach(input => {
+		input.addEventListener("input", () => {
+			// if no value is provided, ignore it sincei ts optional
+			if (!input.value) return input.classList.remove("invalid");
+			let password_valid = validatePassword(input.value);
+			if (password_valid.valid) {
+				input.classList.remove("invalid");
+				(input.nextElementSibling! as HTMLElement).innerText = "";
+			} else {
+				input.classList.add("invalid");
+				// show an error message 
+				(input.nextElementSibling! as HTMLElement).innerText = password_valid.error!;
+			}
+		});
+	});
+
+	const user_edit_form = document.querySelector("#userEditForm") as HTMLFormElement;
+	user_edit_form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		// get the button and error elements, clear the error state and show a loading spinner
+		const error = user_edit_form.querySelector("#userEditError") as HTMLParagraphElement;
+		const button = user_edit_form.querySelector("button") as HTMLButtonElement;
+		// if the button is already in a loading state, the submission is already being processed so dont start agin
+		if (button.classList.contains("loading")) return;
+		button.classList.add("loading");
+		error.innerText = "";
+
+		try {
+			const username_input = user_edit_form.querySelector("#userEditUsername") as HTMLInputElement;
+			const password_input = user_edit_form.querySelector("#userEditPassword") as HTMLInputElement;
+			const role_input = user_edit_form.querySelector("#userEditRole") as HTMLSelectElement;
+			const name_input = user_edit_form.querySelector("#userEditName") as HTMLInputElement;
+			const on_duty_input = user_edit_form.querySelector("#userEditOnDuty") as HTMLSelectElement;
+			const restriction_daily_input = user_edit_form.querySelector("#userEditRestrictionDaily") as HTMLInputElement;
+			const restriction_class_input = user_edit_form.querySelector("#userEditRestrictionClass") as HTMLInputElement;
+
+			let valid = true;
+			// adding the required attribute to inputs and using select menus and number inputs means the browser does most of the validation automatically.
+			// only need to check the password input if provided
+
+			if (password_input.value) {
+				const password_valid = validatePassword(password_input.value);
+				if (!password_valid.valid) {
+					error.innerText = password_valid.error!;
+					valid = false;
+				};
+			};
+
+			if (valid) {
+				const result = await request<User>(`users/${current_edit_user_id}`, "PATCH", {
+					username: username_input.value,
+					password: password_input.value,
+					name: name_input.value,
+					role: role_input.value,
+					on_duty: on_duty_input.value === "on_duty",//convert to boolean
+					restriction_daily: restriction_daily_input.value,
+					restriction_class: restriction_class_input.value,
+				});
+				if (result.success) {
+					//just reload the page rather than trying to edit the current state
+					location.reload();
+				} else {
+					error.innerText = result.error;
+				};
+			};
+		} catch(e) {
+			console.error(e);
+			error.innerText = "Failed to save changes. An unexpected error occured.";
+		};
+		button.classList.remove("loading");
+	});
+
+	const user_create_button = document.querySelector("#addUserButton") as HTMLButtonElement;
+	user_create_button.addEventListener("click", () => {
+		openModal("userCreateModal");
+	});
+
+	const user_create_form = document.querySelector("#userCreateForm") as HTMLFormElement;
+	user_create_form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		// get the button and error elements, clear the error state and show a loading spinner
+		const error = user_create_form.querySelector("#userCreateError") as HTMLParagraphElement;
+		const button = user_create_form.querySelector("button") as HTMLButtonElement;
+		// if the button is already in a loading state, the submission is already being processed so dont start agin
+		if (button.classList.contains("loading")) return;
+		button.classList.add("loading");
+		error.innerText = "";
+
+		try {
+			const username_input = user_create_form.querySelector("#userCreateUsername") as HTMLInputElement;
+			const password_input = user_create_form.querySelector("#userCreatePassword") as HTMLInputElement;
+			const name_input = user_create_form.querySelector("#userCreateName") as HTMLInputElement;
+			const role_input = user_create_form.querySelector("#userCreateRole") as HTMLSelectElement;
+
+			let valid = true;
+			// adding the required attribute to inputs and using select menus and number inputs means the browser does most of the validation automatically.
+			// only need to check the password input if provided
+
+			if (password_input.value) {
+				const password_valid = validatePassword(password_input.value);
+				if (!password_valid.valid) {
+					error.innerText = password_valid.error!;
+					valid = false;
+				};
+			};
+
+			if (valid) {
+				const result = await request<User>("users", "PUT", {
+					username: username_input.value,
+					password: password_input.value,
+					name: name_input.value,
+					role: role_input.value,
+				});
+				if (result.success) {
+					//just reload the page rather than trying to edit the current state to add the new row
+					location.reload();
+				} else {
+					error.innerText = result.error;
+				};
+			};
+		} catch(e) {
+			console.error(e);
+			error.innerText = "Failed to create user. An unexpected error occured.";
+		};
+		button.classList.remove("loading");
+	});
+
+	function parseCSVFile(file: File, skip_header_row: boolean, default_password: string, default_role?: number) {
+		type PartialUser = {
+			username: string;
+			password: string;
+			name: string;
+			role: number;
+		}
+
+		return new Promise<PartialUser[]>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsText(file);
+			reader.onload = () => {
+				const text = reader.result as string;
+				let rows = text.split("\n");
+
+				let username_column_index = 0;
+				let name_column_index = 1;
+				let password_column_index = 2;
+				let role_column_index = 3;
+				if (skip_header_row) {
+					// attempt to find the columns by name
+					for (const column of rows[0].split(",")) {
+						if (column.trim().toLowerCase() === "username") username_column_index = rows[0].indexOf(column);
+						if (column.trim().toLowerCase() === "name") name_column_index = rows[0].indexOf(column);
+						if (column.trim().toLowerCase() === "password") password_column_index = rows[0].indexOf(column);
+						if (column.trim().toLowerCase() === "role") role_column_index = rows[0].indexOf(column);
+					};
+					//remove the first (header) row
+					rows = rows.slice(1);
+				};
+				//parse out the remaining rows
+				const users:PartialUser[] = [];
+				for (const row of rows) {
+					// fetch out the values (split by a comma)
+					const columns = row.split(",");
+					const username = columns[username_column_index];
+					const password = default_password && default_password !== "" ? default_password : columns[password_column_index];
+					const name = columns[name_column_index];
+					const role = !isNaN(default_role!) ? default_role : columns[role_column_index];
+
+					users.push({
+						username: username,
+						password: password,
+						name: name,
+						/* @ts-ignore ill give parseInt a number if i want to */
+						role: parseInt(role),
+					});
+				};
+
+				resolve(users);
+			};
+		})
+	};
+
+
+	const bulk_create_button = document.querySelector("#bulkCreateUserButton") as HTMLButtonElement;
+	bulk_create_button.addEventListener("click", () => {
+		openModal("userBulkCreateModal");
+	});
+
+	const bulk_create_form = document.querySelector("#userBulkCreateForm") as HTMLFormElement;
+	bulk_create_form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		// get the button and error elements, clear the error state and show a loading spinner
+		const error = bulk_create_form.querySelector("#userBulkCreateError") as HTMLParagraphElement;
+		const button = bulk_create_form.querySelector("button") as HTMLButtonElement;
+		// if the button is already in a loading state, the submission is already being processed so dont start agin
+		if (button.classList.contains("loading")) return;
+		button.classList.add("loading");
+		error.innerText = "";
+
+		try {
+			const file_input = bulk_create_form.querySelector("#userBulkCreateFile") as HTMLInputElement;
+			const skip_header_row = bulk_create_form.querySelector("#userBulkCreateSkipHeader") as HTMLInputElement;
+			const password_input = bulk_create_form.querySelector("#userBulkCreatePassword") as HTMLInputElement;
+			const role_input = bulk_create_form.querySelector("#userBulkCreateRole") as HTMLSelectElement;
+
+			const users = await parseCSVFile(file_input.files![0], skip_header_row.checked, password_input.value, role_input.value ? parseInt(role_input.value) : undefined);
+
+			type Error = {
+				index: number;
+				field: "username" | "password" | "name" | "role";
+				error: string | null;
+			}
+
+			const result = await request<{ users: User[], errors: Error[] }>("users/bulk", "PUT", {
+				users: users,
+			});
+			if (result.success) {
+				if (result.data.errors.length === 0) {
+					alert("All users created successfully");
+					location.reload();
+				} else {
+					alert("Some users failed to create");
+					console.log(result.data.errors);
+				}
+			};
+		} catch(e) {
+			console.error(e);
+			error.innerText = "Failed to create users. An unexpected error occured.";
+		};
+		button.classList.remove("loading");
 	});
 
 </script>

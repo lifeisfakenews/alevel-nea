@@ -1,0 +1,9 @@
+username,password,name,role
+test-student-20,Password123!,Test Student 20,0
+test-student-21,Password123!,Test Student 21,0
+test-student-22,Password123!,Test Student 22,0
+test-teacher-20,Password123!,Test Teacher 20,1
+test-teacher-21,Password123!,Test Teacher 21,1
+test-teacher-22,Password123!,Test Teacher 22,1
+test-it-20,Password123!,Test IT 20,2
+test-it-21,Password123!,Test IT 21,2
