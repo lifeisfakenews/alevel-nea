@@ -31,13 +31,13 @@ const roles = {
 <Layout title="User Management">
 	<div class="flex v-center">
 		<div class="push-right">
-			<Button id="addUserButton" text="Add User" icon="bx bx-plus" theme="dark" modifiers={["no-mgi"]} />
+			<Button id="addUserButton" text="Add User" theme="dark" modifiers={["no-mgi"]} />
 		</div>
 	</div>
 	<div class="flex v-center" style="margin-block: 1rem">
 		<input type="search" placeholder="Search users" class="input input-search" id="searchInput" />
 		<div class="push-right flex v-center gap-100">
-			<select class="input input-select" id="roleSelect" placeholder="Role">
+			<select class="input input-select" id="roleSelect">
 				<option value=""></option>
 				<option value="0">Students</option>
 				<option value="1">Teachers</option>
@@ -64,7 +64,7 @@ const roles = {
 			<tr>
 				<th data-table-column="select">
 					<label class="bulk-select">
-						<input type="checkbox" data-table-control />
+						<input type="checkbox" data-table-control="true" />
 					</label>
 				</th>
 				<th>User</th>
@@ -78,7 +78,7 @@ const roles = {
 			{users.map(user => {
 				const most_recent_session = user.sessions ? user.sessions[user.sessions.length - 1] : null;
 				const restriction_filter_value = user.restriction_daily && user.restriction_class ? "both" : user.restriction_daily ? "daily" : user.restriction_class ? "class" : "no";
-				return <tr data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value}>
+				return <tr data-user-id={user._id} data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value}>
 					<td data-table-column="select">
 						<label class="bulk-select">
 							<input type="checkbox" />
@@ -105,7 +105,7 @@ const roles = {
 						}
 					</td>
 					<td>
-						<Dropdown id={"userActions__" + user.id} three_dots>
+						<Dropdown id={"userActions__" + user._id} three_dots>
 							<button data-user-action="view">View Details</button>
 							<button data-user-action="edit">Edit</button>
 							<hr />
@@ -117,6 +117,19 @@ const roles = {
 		</tbody>
 	</table>
 </Layout>
+
+<div class="bulk-select-wrapper">
+	<div class="bulk-select-row | flex v-center gap-100">
+		<p>
+			<span class="bulk-select-count"></span>
+			<span>items selected</span>
+		</p>
+		<button class="bulk-action | nostyles" data-bulk-action="clear">Clear</button>
+		<div class="push-right | flex v-center gap-100">
+			<button class="bulk-action | nostyles" data-bulk-action-style="clear" data-bulk-action="delete">Delete</button>
+		</div>
+	</div>
+</div>
 
 <style>
 	.user-name {
@@ -206,9 +219,54 @@ const roles = {
         margin: 0;
         position: absolute;
     }
+
+
+	.bulk-select-wrapper {
+        position: fixed;
+        inset: auto 0 -10rem 0;
+        display: block;
+        transition: .3s;
+        --_inline-inset: 20rem;
+    }
+
+    .bulk-select-row {
+        background: var(--nea-clr-dark-900);
+        border: .1rem solid var(--nea-clr-dark-800);
+        box-shadow: 1rem 1rem .6rem rgba(0, 0, 0, .3),-.1rem -.1rem .5rem rgba(0, 0, 0, .3);
+        border-radius: .8rem;
+        margin-inline: var(--_inline-inset);
+        padding: 1rem;
+    }
+
+    .bulk-select-wrapper p {
+        color: var(--nea-clr-text-600);
+    }
+    .bulk-select-count {
+        font-weight: 800;
+        color: var(--nea-clr-text-100);
+    }
+
+    .bulk-action {
+        color: var(--nea-clr-text-100);
+        cursor: pointer;
+
+        &:is(:hover, :focus-visible) {
+            text-decoration: underline;
+        }
+
+        &[data-bulk-action-style="clear"] {
+            color: hsl(31, 87%, 50%);
+        }
+
+        &[data-bulk-action-style="danger"] {
+            color: var(--nea-clr-danger-400);
+        }
+    }
 </style>
 
 <script>
+	import request from "@/lib/request";
+
 	let search_query = "", role_filter = "", detail_filter = "";
 	let role_filter_set_automatically = false;
 
@@ -244,8 +302,8 @@ const roles = {
 		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
 			const detail_filter_type = detail_filter.split("_")[1];
 
-			const row_name = row.dataset.userName;
-			const row_role = row.dataset.userRole;
+			const row_name = row.dataset.userName!;
+			const row_role = row.dataset.userRole!;
 			const row_detail = detail_filter_type === "restriction" ? row.dataset.userRestriction : row.dataset.userOnduty;
 
 			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
@@ -260,5 +318,64 @@ const roles = {
 			}
 		}
 	}
+
+
+	const bulk_select_checkboxes = Array.from(document.querySelectorAll("[data-table-column='select'] input[type='checkbox']") as NodeListOf<HTMLInputElement>);
+	const bulk_select_wrapper = document.querySelector(".bulk-select-wrapper") as HTMLDivElement;
+	const bulk_select_count = document.querySelector(".bulk-select-count") as HTMLParagraphElement;
+	bulk_select_checkboxes.forEach(checkbox => {
+		checkbox.addEventListener("change", () => {
+			//ie the one in the heading row, update all checkboxed to be checked or not depending on the stat of the heading checkbox
+			if (checkbox.dataset.tableControl === "true") {
+				bulk_select_checkboxes.forEach(x => x.checked = checkbox.checked);
+				bulk_select_wrapper.style.bottom = checkbox.checked ? "10rem" : "";
+			} else {
+				const control_checkbox = bulk_select_checkboxes.find(x => x.dataset.tableControl === "true")!;
+				if (checkbox.checked) {
+					control_checkbox.checked = true;
+					bulk_select_wrapper.style.bottom = "10rem";
+				} else if (!bulk_select_checkboxes.some(x => x.checked && x.dataset.tableControl !== "true")) {
+					//if no other checkboxes are checked, uncheck the control checkbox
+					control_checkbox.checked = false;
+					bulk_select_wrapper.style.bottom = "";// empty value defaults to whatever it has in styles
+				};
+			};
+
+			const number_of_checked_boxes = bulk_select_checkboxes.filter(x => x.checked && x.dataset.tableControl !== "true").length;
+			bulk_select_count.innerText = number_of_checked_boxes.toString();
+		});
+	});
+
+	const bulk_select_clear = document.querySelector("[data-bulk-action='clear']") as HTMLButtonElement;
+	bulk_select_clear.addEventListener("click", () => {
+		bulk_select_checkboxes.forEach(x => x.checked = false);
+		bulk_select_wrapper.style.bottom = "";
+		bulk_select_count.innerText = "0";
+	});
+
+	const bulk_select_delete = document.querySelector("[data-bulk-action='delete']") as HTMLButtonElement;
+	bulk_select_delete.addEventListener("click", async() => {
+		const checked_boxes = bulk_select_checkboxes.filter(x => x.checked && x.dataset.tableControl !== "true");
+		const ids: string[] = [];
+		checked_boxes.forEach(checkbox => {
+			const table_row = checkbox.closest("tr") as HTMLTableRowElement;
+			ids.push(table_row.dataset.userId!);
+		});
+
+		const result = await request<void>("users/bulk", "DELETE", {
+			ids: ids,
+		});
+		if (result.success) {
+			bulk_select_checkboxes.forEach(x => x.checked = false);
+			bulk_select_wrapper.style.bottom = "";
+			bulk_select_count.innerText = "0";
+			checked_boxes.forEach(checkbox => {
+				const table_row = checkbox.closest("tr") as HTMLTableRowElement;
+				table_row.remove();
+			});
+		} else {
+			alert(`Error delete users:\n ${result.error}`);
+		};
+	});
 
 </script>

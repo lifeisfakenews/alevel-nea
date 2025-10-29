@@ -380,5 +380,42 @@ web_server.get("/users/:user_id", async(req, res) => {
     }
 });
 
+
+// delete one or more users. Pass bulk for :users_id and an array of IDs in the body
+// required senior staff or it staff
+web_server.delete("/users/:user_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        if (req.params.user_id === "bulk") {
+            const { ids } = req.body;
+            if (!ids) return res.status(400).send("No IDs provided");
+            if (!Array.isArray(ids)) return res.status(400).send("Must provide an array of IDs");
+
+            const result = await db_users.deleteMany({ _id: { $in: ids } });
+            return res.status(200).json({
+                success: true,
+            });
+        } else {
+            const { user_id } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(user_id)) return res.status(404).send("User not found");
+            const user = await db_users.findById(user_id);
+            if (!user) return res.status(404).send("User not found");
+            const result = await db_users.findByIdAndDelete(user_id);
+            return res.status(200).json({
+                success: true,
+            });
+        };
+    } catch(e: any) {
+        log(`Error on DELETE \`/users/:user_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+
 process.on("unhandledRejection", handleError);
 process.on("uncaughtException", handleError);

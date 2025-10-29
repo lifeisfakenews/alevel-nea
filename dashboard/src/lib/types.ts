@@ -6,7 +6,7 @@ export enum UserRole {
 }
 
 export type User = {
-    id: string;
+    _id: string;
     created_at: Date;
     updated_at: Date;
 
