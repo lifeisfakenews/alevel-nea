@@ -18,7 +18,7 @@ const schema = new Schema({
     user_id: { type: String, required: true },
     location: { type: String, required: true },
     duration: { type: Number, required: true },
-    state: { type: String, required: true, enum: ["active", "expired"] },
+    state: { type: String, required: true, enum: ["active", "expired"], default: "active" },
 }, {
     timestamps: {
         createdAt: "created_at",

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, TextInput, Alert, TouchableOpacity } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { Redirect, useRouter } from "expo-router";
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -10,9 +11,11 @@ import { Fonts } from '@/constants/theme';
 
 import request from "@/lib/request";
 
-export default function TabTwoScreen() {
+export default function LoginModal() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+
+    const router = useRouter();
 
     async function loginSubmit() {
         if (!username || !password) return Alert.alert("Missing username or password");
@@ -35,7 +38,7 @@ export default function TabTwoScreen() {
                 Alert.alert("You don't have access");
             } else {
                 await SecureStore.setItemAsync("token", result.data.token);
-                Alert.alert("Successfully logged in");
+                return router.replace("/");
             };
         } else {
             Alert.alert(result.error);

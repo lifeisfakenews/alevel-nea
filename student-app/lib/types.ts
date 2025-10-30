@@ -7,8 +7,8 @@ export enum UserRole {
 
 export type User = {
     _id: string;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 
     username: string;
     password: string;
@@ -16,10 +16,10 @@ export type User = {
     role: UserRole;
     sessions: {
         id: string;
-        created_at: Date;
+        created_at: string;
         
         token: string;
-        expiry: Date;
+        expiry: string;
     }[];
 
     // Student fields
@@ -32,9 +32,9 @@ export type User = {
 }
 
 export type Pass = {
-    id: string;
-    created_at: Date;
-    updated_at: Date;
+    _id: string;
+    created_at: string;
+    updated_at: string;
     
     user_id: string;
     location: string;
@@ -44,8 +44,8 @@ export type Pass = {
 
 export type Restriction = {
     id: string;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 
     name: string;
     type: "area" | "frequency";

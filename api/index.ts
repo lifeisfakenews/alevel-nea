@@ -96,6 +96,43 @@ async function checkUserRole(user_or_id: User | string, role: number | number[])
     }
 };
 
+// Check restrictions for pass creation
+// TODO: as global restrictions aren't implemented yet, those checks havent beeen addded it only looks at student restrictions
+async function checkRestrictions(user: User, location: string) {
+
+    if (user.restriction_daily) {
+        const current_date = new Date();
+        current_date.setHours(0, 0, 0, 0);
+        const passes_created_today = await db_passes.countDocuments({
+            created_by: user._id,
+            created_at: {
+                $gt: current_date
+            }
+        });
+        if (passes_created_today >= user.restriction_daily) return false;
+    };
+    if (user.restriction_class) {
+        const current_date = new Date();
+        // we assume for now that lessons are 1 hour and start on the hour
+        current_date.setMinutes(0, 0, 0);
+        const passes_created_this_lesson = await db_passes.countDocuments({
+            created_by: user._id,
+            created_at: {
+                $gt: current_date
+            }
+        });
+        if (passes_created_this_lesson >= user.restriction_class) return false;
+    };
+
+    return true;
+};
+
+// Check for student grouping and send alerts
+// TODO: implement this function
+async function checkStudentGrouping(user: User, location: string) {
+    return true;
+};
+
 // general logging function
 // logs to stdout and the discord webhook defined in env
 async function log(content: string, type: "error" | "reload" | "other" = "other") {
@@ -431,7 +468,6 @@ web_server.patch("/users/:user_id", async(req, res) => {
     }
 });
 
-
 // delete one or more users. Pass bulk for :users_id and an array of IDs in the body
 // required senior staff or it staff
 web_server.delete("/users/:user_id", async(req, res) => {
@@ -466,6 +502,96 @@ web_server.delete("/users/:user_id", async(req, res) => {
         return res.status(500).send("Internal server error");
     }
 });
+
+
+
+
+// Create a pass. Body requires `location` and `duration`.
+// only student accounts can use this endpoint
+web_server.put("/passes", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+        
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_STUDENT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+    
+        const { location, duration } = req.body;
+        if (!location || !duration) return res.status(400).send("No location or duration provided");
+        if (isNaN(duration) || duration < 0) return res.status(400).send("Invalid duration");
+        if (duration > MAX_PASS_DURATION) return res.status(400).send("Duration too long");
+    
+        const user = authCheck.user;
+        const passes_restrictions = await checkRestrictions(user, location);
+        if (!passes_restrictions) return res.status(400).send("Does not follow restrictions");
+    
+        // check for student grouping
+        const does_not_create_group = await checkStudentGrouping(user, location);
+        if (!does_not_create_group) return res.status(400).send("Group too large");
+    
+        // create the pass
+        const pass = await new db_passes({
+            user_id: user._id,
+            location: location,
+            duration: duration,
+        }).save();
+        return res.status(201).json({
+            success: true,
+            data: pass,
+        });
+    } catch(e: any) {
+        log(`Error on PUT \`/passes\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// List all passes. For student accounts, only those they own are returned.
+// Requires authentication
+web_server.get("/passes", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_STUDENT]);
+        if (roleCheck) {
+            const users_passes = await db_passes.find({ user_id: authCheck.user._id });
+            return res.status(200).json({
+                success: true,
+                data: users_passes.map(x => x.toObject({ flattenObjectIds: true })),
+            });
+        } else {
+            const all_passes = await db_passes.find({});
+            return res.status(200).json({
+                success: true,
+                data: all_passes.map(x => x.toObject({ flattenObjectIds: true })),
+            });
+        };
+    } catch(e: any) {
+        log(`Error on GET \`/passes\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+
+
+
+
+// Expire passes
+
+setInterval(async() => {
+    // first get all active passes
+    const active_passes = await db_passes.find({ state: "active" });
+    // then for each active pass, check if it has expired
+    for (const pass of active_passes) {
+        const duration_remaining = (new Date(pass.created_at).getTime() + pass.duration) - Date.now();//in milliseconds
+        if (duration_remaining < 0) {
+            // if it has expired, update the state to expired
+            await db_passes.findByIdAndUpdate(pass._id, {
+                state: "expired",
+            });
+        };
+    };
+}, 10000);
 
 
 process.on("unhandledRejection", handleError);

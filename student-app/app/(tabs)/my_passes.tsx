@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Image } from 'expo-image';
-import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Redirect, useRouter } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,15 +13,11 @@ import { ThemedView } from '@/components/themed-view';
 
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
-import CountdownTimer from "@/components/countdown";
 
-export default function HomeScreen() {
+export default function PassesScreen() {
     const [user, setUser] = useState<User | null>(null);
     const [passes, setPasses] = useState<Pass[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const router = useRouter();
-
     
     useFocusEffect(() => {
         async function fetchUser() {
@@ -42,6 +38,8 @@ export default function HomeScreen() {
     
     if (!user) return <Redirect href="/login" />;
 
+    if (!passes.length) return <ThemedText>No passes created</ThemedText>;
+
     return (
         <ParallaxScrollView
             headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -49,29 +47,16 @@ export default function HomeScreen() {
                 <Image source={require('@/assets/images/partial-react-logo.png')} style={styles.reactLogo} />
             }>
             <ThemedView style={styles.titleContainer}>
-                <ThemedText type="subtitle">Welcome, {user.name}</ThemedText>
+                <ThemedText type="subtitle">Your passes ({passes.length ?? 0})</ThemedText>
             </ThemedView>
-            <ThemedView style={styles.stepContainer}>
-                <TouchableOpacity>
-                    <ThemedText type="link">Create Pass</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={async() => {
-                    await SecureStore.deleteItemAsync("token");
-                    return router.replace("/login");
-                }}>
-                    <ThemedText type="link">Logout</ThemedText>
-                </TouchableOpacity>
-            </ThemedView>
-            <ThemedView style={styles.titleContainer}>
-                <ThemedText type="subtitle">Active Passes ({passes.filter(x => x.state === "active").length ?? 0})</ThemedText>
-            </ThemedView>
-            {passes.reverse().filter(x => x.state === "active").map(pass => <TouchableOpacity onPress={() => router.replace("/modal")} key={pass._id}>
-                <ThemedView style={styles.passContainer}>
-                    <ThemedText type="subtitle">{pass.location}</ThemedText>
-                    <ThemedText type="default">{Math.round(pass.duration / (1000 * 60))} minutes • <CountdownTimer end_time={new Date(pass.created_at).getTime() + pass.duration} /></ThemedText>
-                    <ThemedText type="small">Expires {new Date(new Date(pass.created_at).getTime() + pass.duration).toLocaleTimeString()}</ThemedText>
-                </ThemedView>
-            </TouchableOpacity>) ?? <ThemedText>No active passes</ThemedText>}
+            {passes.reverse().map(pass => <ThemedView style={styles.stepContainer} key={pass._id}>
+                <ThemedText type="subtitle">{pass.location}</ThemedText>
+                <ThemedText type="default">{Math.round(pass.duration / (1000 * 60))} minutes</ThemedText>
+                <ThemedText type="small">
+                    Created {new Date(pass.created_at).toLocaleString()} • 
+                    {pass.state === "active" ? <ThemedText type="link">Active</ThemedText> : ""}
+                </ThemedText>
+            </ThemedView>)}
       </ParallaxScrollView>
     );
 }
@@ -83,10 +68,6 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     stepContainer: {
-        gap: 8,
-        marginBottom: 8,
-    },
-    passContainer: {
         backgroundColor: '#222',
         padding: 8,
         gap: 8,

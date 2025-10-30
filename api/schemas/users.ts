@@ -4,6 +4,7 @@ import { Schema, model } from "mongoose";
 
 export type User = {
     //added automatically as a string version of the `_id` field. Doesnt need to be included in the schema
+    _id: string;
     id: string;
     //this and updated_at are added automatically by mongoose via the `timestamps` option in the schema
     created_at: Date;
