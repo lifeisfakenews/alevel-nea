@@ -65,7 +65,7 @@ export default function HomeScreen() {
             <ThemedView style={styles.titleContainer}>
                 <ThemedText type="subtitle">Active Passes ({passes.filter(x => x.state === "active").length ?? 0})</ThemedText>
             </ThemedView>
-            {passes.reverse().filter(x => x.state === "active").map(pass => <TouchableOpacity onPress={() => router.replace("/modal")} key={pass._id}>
+            {passes.reverse().filter(x => x.state === "active").map(pass => <TouchableOpacity onPress={() => router.replace(`/modal?passId=${pass._id}`)} key={pass._id}>
                 <ThemedView style={styles.passContainer}>
                     <ThemedText type="subtitle">{pass.location}</ThemedText>
                     <ThemedText type="default">{Math.round(pass.duration / (1000 * 60))} minutes • <CountdownTimer end_time={new Date(pass.created_at).getTime() + pass.duration} /></ThemedText>
