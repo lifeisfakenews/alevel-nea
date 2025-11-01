@@ -5,8 +5,8 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const tintColorLight = 'hsl(180, 94%, 39%)';
+const tintColorDark = 'hsl(180, 94%, 39%)';
 
 export const Colors = {
   light: {

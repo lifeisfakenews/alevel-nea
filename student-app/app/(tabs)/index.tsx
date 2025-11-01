@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/button';
 
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
@@ -22,7 +23,6 @@ export default function HomeScreen() {
 
     const router = useRouter();
 
-    
     useFocusEffect(() => {
         async function fetchUser() {
             const result = await request<User>("users/@me", "GET");
@@ -52,15 +52,11 @@ export default function HomeScreen() {
                 <ThemedText type="subtitle">Welcome, {user.name}</ThemedText>
             </ThemedView>
             <ThemedView style={styles.stepContainer}>
-                <TouchableOpacity>
-                    <ThemedText type="link">Create Pass</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={async() => {
-                    await SecureStore.deleteItemAsync("token");
-                    return router.replace("/login");
-                }}>
-                    <ThemedText type="link">Logout</ThemedText>
-                </TouchableOpacity>
+                <Button onPress={() => router.replace("/create_pass")}>Create Pass</Button>
+                <Button onPress={async() => {
+                    await SecureStore.deleteItemAsync("token")
+                    router.replace("/")
+                }}>Logout</Button>
             </ThemedView>
             <ThemedView style={styles.titleContainer}>
                 <ThemedText type="subtitle">Active Passes ({passes.filter(x => x.state === "active").length ?? 0})</ThemedText>

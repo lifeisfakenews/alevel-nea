@@ -4,12 +4,12 @@ import React, { useEffect, useState } from "react";
 import { Image } from 'expo-image';
 import { StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Redirect, useRouter } from "expo-router";
-import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/button';
 
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
@@ -64,14 +64,12 @@ export default function CreatePassScreen() {
             </ThemedView>
             <ThemedView style={styles.stepContainer}>
                 <ThemedText type="subtitle">Location</ThemedText>
-                <TextInput value={location} onChangeText={setLocation} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <TextInput value={location} onChangeText={setLocation} style={{ backgroundColor: "#555", color: "#ffffff", borderRadius: 10,fontSize: 18 }} />
 
                 <ThemedText type="subtitle">Duration (minutes)</ThemedText>
-                <TextInput inputMode="numeric" value={duration} onChangeText={setDuration} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <TextInput inputMode="numeric" value={duration} onChangeText={setDuration} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
 
-                <TouchableOpacity onPress={formSubmit}>
-                    <ThemedText type="link">Create Pass</ThemedText>
-                </TouchableOpacity>
+                <Button onPress={formSubmit}>Create Pass</Button>
             </ThemedView>
       </ParallaxScrollView>
     );

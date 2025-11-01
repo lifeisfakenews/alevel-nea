@@ -8,6 +8,7 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Button } from '@/components/button';
 import { Fonts } from '@/constants/theme';
 
 import request from "@/lib/request";
@@ -80,27 +81,19 @@ export default function LoginModal() {
                 <IconSymbol size={310} color="#808080" name="chevron.left.forwardslash.chevron.right" style={styles.headerImage} />
             }>
             <ThemedView style={styles.titleContainer}>
-                <View>
-                    <ThemedText type="title" style={{ fontFamily: Fonts.rounded }}>Login</ThemedText>
-                </View>
-                <View>
-                    <TouchableOpacity onPress={readStudentIDCard}>
-                        <ThemedText type={idScanState ? "default" : "link"}>{idScanState ? "Scan student ID" : "Login with student ID"}</ThemedText>
-                    </TouchableOpacity>
-                </View>
+                <ThemedText type="title" style={{ fontFamily: Fonts.rounded }}>Login</ThemedText>
+                <Button onPress={readStudentIDCard} disabled={idScanState}>{idScanState ? "Scan student ID" : "Login with student ID"}</Button>
             </ThemedView>
-            <ThemedView style={{ marginTop: 20 }}>
+            <ThemedView>
                 <ThemedText>Or, use your username and password</ThemedText>
 
                 <ThemedText type="subtitle">Username</ThemedText>
-                <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
 
                 <ThemedText type="subtitle">Password</ThemedText>
-                <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
 
-                <TouchableOpacity onPress={loginSubmit}>
-                    <ThemedText type="link">Login</ThemedText>
-                </TouchableOpacity>
+                <Button onPress={loginSubmit}>Login</Button>
             </ThemedView>
       </ParallaxScrollView>
     );
@@ -114,7 +107,6 @@ const styles = StyleSheet.create({
         position: 'absolute',
     },
     titleContainer: {
-        flexDirection: 'row',
         gap: 8,
     },
 });
