@@ -456,6 +456,8 @@ const roles = {
 	const role_select = document.querySelector("#roleSelect") as HTMLSelectElement;
 	const detail_select = document.querySelector("#detailSelect") as HTMLSelectElement;
 
+	const inputs = document.querySelectorAll(".input") as NodeListOf<HTMLInputElement | HTMLSelectElement>;
+
 	search_input.addEventListener("input", () => {
 		search_query = search_input.value;
 		filterTable();

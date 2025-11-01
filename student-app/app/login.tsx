@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { StyleSheet, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, TextInput, Alert, TouchableOpacity, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Redirect, useRouter } from "expo-router";
+import NfcManager, {NfcTech, Ndef} from 'react-native-nfc-manager';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -15,11 +16,11 @@ export default function LoginModal() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
 
+    const [idScanState, setIdScanState] = useState(false);
+
     const router = useRouter();
 
-    async function loginSubmit() {
-        if (!username || !password) return Alert.alert("Missing username or password");
-
+    async function loginUser(username: string, password: string) {
         type PartialUser = {
             token: string;
             username: string;
@@ -43,7 +44,34 @@ export default function LoginModal() {
         } else {
             Alert.alert(result.error);
         };
+    };
+
+    async function readStudentIDCard() {
+        try {
+            setIdScanState(true);
+            // Search for an NFC tag
+            await NfcManager.requestTechnology(NfcTech.Ndef);
+            const tag = await NfcManager.getTag();
+            if (tag && tag.ndefMessage) {//check it has contents
+                const record = tag.ndefMessage[0];
+                /* @ts-ignore because record is untyped */
+                const decoded_content = Ndef.text.decodePayload(record.payload);
+                const [username, password] = decoded_content.split(":");
+                await loginUser(username, password);
+            }
+        } catch (e:any) {
+            Alert.alert("Failed to scan card", e.toString());
+        } finally {
+            // stop the nfc scanning
+            NfcManager.cancelTechnologyRequest();
+            setIdScanState(false);
+        }
     }
+
+    async function loginSubmit() {
+        if (!username || !password) return Alert.alert("Missing username or password");
+        await loginUser(username, password);
+    };
 
     return (
         <ParallaxScrollView
@@ -52,19 +80,28 @@ export default function LoginModal() {
                 <IconSymbol size={310} color="#808080" name="chevron.left.forwardslash.chevron.right" style={styles.headerImage} />
             }>
             <ThemedView style={styles.titleContainer}>
-                <ThemedText type="title" style={{ fontFamily: Fonts.rounded }}>Login</ThemedText>
+                <View>
+                    <ThemedText type="title" style={{ fontFamily: Fonts.rounded }}>Login</ThemedText>
+                </View>
+                <View>
+                    <TouchableOpacity onPress={readStudentIDCard}>
+                        <ThemedText type={idScanState ? "default" : "link"}>{idScanState ? "Scan student ID" : "Login with student ID"}</ThemedText>
+                    </TouchableOpacity>
+                </View>
             </ThemedView>
-            <ThemedText>Login to get started.</ThemedText>
+            <ThemedView style={{ marginTop: 20 }}>
+                <ThemedText>Or, use your username and password</ThemedText>
 
-            <ThemedText type="subtitle">Username</ThemedText>
-            <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <ThemedText type="subtitle">Username</ThemedText>
+                <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
 
-            <ThemedText type="subtitle">Password</ThemedText>
-            <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
+                <ThemedText type="subtitle">Password</ThemedText>
+                <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#222", color: "#ffffff", fontSize: 18 }} />
 
-            <TouchableOpacity onPress={loginSubmit}>
-                <ThemedText type="link">Login</ThemedText>
-            </TouchableOpacity>
+                <TouchableOpacity onPress={loginSubmit}>
+                    <ThemedText type="link">Login</ThemedText>
+                </TouchableOpacity>
+            </ThemedView>
       </ParallaxScrollView>
     );
 }
