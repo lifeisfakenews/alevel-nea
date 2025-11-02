@@ -572,7 +572,29 @@ web_server.get("/passes", async(req, res) => {
     }
 });
 
+// Fetch a specific pass by ID
+// requires teacher account or above
+web_server.get("/passes/:pass_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
 
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { pass_id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(pass_id)) return res.status(404).send("Pass not found");
+        const pass = await db_passes.findById(pass_id);
+        if (!pass) return res.status(404).send("Pass not found");
+        return res.status(200).json({
+            success: true,
+            data: pass,
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/passes/:pass_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 
 

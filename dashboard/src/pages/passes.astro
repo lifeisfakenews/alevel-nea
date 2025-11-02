@@ -1,0 +1,307 @@
+---
+
+import request from "@/lib/request";
+import { type Pass, type User } from "@/lib/types";
+import { formatTimestamp } from "@/lib/format";
+
+import Layout from "@/layouts/Primary.astro";
+import Dropdown from "@/components/Dropdown.astro";
+import Modal from "@/components/Modal.astro";
+
+const pass_result = await request<Pass[]>("passes", "GET", undefined, Astro);
+let passes:Pass[] = [];
+if (pass_result.success) passes = pass_result.data;
+
+// we need users as well to display info abt the creator of the pass
+const user_result = await request<User[]>("users", "GET", undefined, Astro);
+let users:User[] = [];
+if (user_result.success) users = user_result.data;
+
+//passes are automatically sorted by data as they are in the order they were created so we just need to reverse it
+passes.reverse();
+
+const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCase())));
+
+---
+
+<Layout title="Pass Management">
+	<div class="flex v-center" style="margin-block: 1rem">
+		<input type="search" placeholder="Search passes" class="input input-search" id="searchInput" />
+		<div class="push-right flex v-center gap-100">
+			<select class="input input-select" id="stateSelect">
+				<option value=""></option>
+				<option value="active">Active</option>
+				<option value="expired">Expired</option>
+			</select>
+			<select class="input input-select" id="locationSelect">
+				<option value=""></option>
+				{location_options.map(x => <option value={x}>{x}</option>)}
+			</select>
+			<select class="input input-select" id="createdSelect">
+				<option value=""></option>
+				<option value="hours_3">Last 3 hours</option>
+				<option value="hours_24">Today</option>
+				<option value="days_7">Last 7 days</option>
+				<option value="days_30">Last 30 days</option>
+			</select>
+		</div>
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<th>Pass</th>
+				<th>Created</th>
+				<th>Expires</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody data-table-empty="No passes found">
+			{passes.map(pass => {
+				const pass_creator = users.find(u => u._id === pass.user_id)!;
+				const pass_expiry = new Date(pass.created_at).getTime() + pass.duration;
+				const seconds_remaining = Math.round((pass_expiry - Date.now()) / 1000);
+				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-state={pass.state} data-pass-location={pass.location.toLowerCase()} data-pass-created-at={pass.created_at}>
+					<td>
+						<p class="pass-name">{pass.location}</p>
+						<p class="pass-subtext">{Math.round(pass.duration / (60 * 1000))} minutes</p>
+					</td>
+					<td>				
+						<p>{pass_creator.name}</p>
+						<p class="pass-subtext smaller">on {formatTimestamp(pass.created_at, "date_time")}</p>
+					</td>
+					<td>
+						{pass_expiry > Date.now() ? <>
+							<p>{seconds_remaining > 60 ? `${Math.round(seconds_remaining / 60)} minutes` : `${seconds_remaining} seconds`}</p>
+							<p class="pass-subtext smaller">Expires at {formatTimestamp(pass_expiry, "time")}</p>
+						</> : <p class="pass-expired">Expired</p>}
+					</td>
+					<td>
+						<Dropdown id={"passActions__" + pass._id} three_dots>
+							<button data-pass-action="view">View Details</button>
+						</Dropdown>
+					</td>
+				</tr>
+			})}
+		</tbody>
+	</table>
+</Layout>
+
+<Modal id="passDetailsModal" title="Pass Details">
+	<div class="detail-card">
+		<h3 class="detail-heading">Overview</h3>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Location</p>
+			<p class="detail-value | push-right" data-pass-detail="location"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Duration</p>
+			<p class="detail-value | push-right" data-pass-detail="duration"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Created</p>
+			<p class="detail-value | push-right pass-role" data-pass-detail="created_at"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Expires</p>
+			<p class="detail-value | push-right" data-pass-detail="expires"></p>
+		</div>
+	</div>
+	<div class="detail-card" id="passDetailsStudent">
+		<h3 class="detail-heading">Student Details</h3>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Name</p>
+			<p class="detail-value | push-right" data-student-detail="name"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Daily Pass Limit</p>
+			<p class="detail-value | push-right" data-student-detail="restriction_daily"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">per Class Pass Limit</p>
+			<p class="detail-value | push-right" data-student-detail="restriction_class"></p>
+		</div>
+		<div class="detail-row | flex v-center gap-100">
+			<p class="detail-label">Failed Pass Attempts</p>
+			<p class="detail-value | push-right" data-student-detail="failed_pass_attempts"></p>
+		</div>
+	</div>
+</Modal>
+
+<style>
+	.pass-name {
+		font-weight: 800;
+		font-size: 1.8rem;
+		color: var(--nea-clr-text-100);
+	}
+	.pass-subtext {
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-600);
+
+		&.smaller {
+			font-size: 1.2rem;
+		}
+	}
+
+	.pass-expired {
+		background: var(--nea-clr-dark-900);
+		border: .1rem solid var(--nea-clr-warning-400);
+		border-radius: 100vmax;
+		padding: .3rem .8rem;
+		width: fit-content;
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-100);
+	}
+
+	th:last-child {
+		width: 1.4rem;
+	}
+
+	.detail-card {
+		border: .1rem solid var(--nea-clr-dark-400);
+		border-radius: .5rem;
+		padding: 1rem;
+		margin-bottom: 1rem;
+
+		.detail-heading {
+			color: var(--nea-clr-primary-400);
+			font-size: 1.6rem;
+			margin-block: 0 .5rem;
+		}
+
+		.detail-label {
+			font-weight: 800;
+		}
+	}
+</style>
+
+<script>
+	import request from "@/lib/request";
+	import { type Pass, type User, UserRole } from "@/lib/types";
+	import { formatTimestamp } from "@/lib/format";
+
+	let search_query = "", state_filter = "", location_filter = "", created_filter = "";
+
+	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
+	const state_select = document.querySelector("#stateSelect") as HTMLSelectElement;
+	const location_select = document.querySelector("#locationSelect") as HTMLSelectElement;
+	const created_select = document.querySelector("#createdSelect") as HTMLSelectElement;
+
+	search_input.addEventListener("input", () => {
+		search_query = search_input.value;
+		filterTable();
+	});
+	state_select.addEventListener("change", () => {
+		state_filter = state_select.value;
+		filterTable();
+	});
+	location_select.addEventListener("change", () => {
+		location_filter = location_select.value;
+		filterTable();
+	});
+	created_select.addEventListener("change", () => {
+		created_filter = created_select.value;
+		filterTable();
+	});
+
+	function filterTable() {
+		const table = document.querySelector("table") as HTMLTableElement;
+		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
+			const row_name = row.dataset.passCreatedBy!;
+			const row_state = row.dataset.passState!;
+			const row_location = row.dataset.passLocation!;
+			const row_created = new Date(row.dataset.passCreatedAt!).getTime();
+
+			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
+			let created_filter_value = 0;
+			if (created_filter !== "") {
+				const [unit, amount] = created_filter.split("_");
+				const days_ms = 24 * 60 * 60 * 1000;
+				const hours_ms = 60 * 60 * 1000;
+				switch(unit) {
+					case "days":
+						created_filter_value = parseInt(amount) * days_ms;
+						break;
+					case "hours":
+						created_filter_value = parseInt(amount) * hours_ms;
+						break;
+				};
+			};
+
+			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
+			const matches_state = state_filter === "" ? true : row_state === state_filter;
+			const matches_location = location_filter === "" ? true : row_location === location_filter;
+			const matches_created = created_filter_value === 0 ? true : row_created > Date.now() - created_filter_value;
+
+			// if the row matches all filters, show it, otherwise hide it
+			if (matches_search && matches_state && matches_location && matches_created) {
+				row.style.display = "";
+			} else {
+				row.style.display = "none";
+			}
+		}
+	}
+
+
+	
+	const user_cache = new Map<string, User>();
+	// fetch a user from the cache or the api
+	async function fetchUser(user_id: string) {
+		if (user_cache.has(user_id)) return user_cache.get(user_id)!;
+		const result = await request<User>(`users/${user_id}`, "GET");
+		if (result.success) {
+			user_cache.set(user_id, result.data);
+			return result.data;
+		} else {
+			alert(`Error fetching user details:\n ${result.error}`);
+			return null;
+		};
+	};
+	
+	const pass_cache = new Map<string, Pass>();
+	// fetch a pass from the cache or the api
+	async function fetchPass(pass_id: string) {
+		if (pass_cache.has(pass_id)) return pass_cache.get(pass_id)!;
+		const result = await request<Pass>(`passes/${pass_id}`, "GET");
+		if (result.success) {
+			pass_cache.set(pass_id, result.data);
+			return result.data;
+		} else {
+			alert(`Error fetching pass details:\n ${result.error}`);
+			return null;
+		};
+	};
+
+	let current_active_pass_id: string | null = null;
+	
+	const pass_details_buttons = Array.from(document.querySelectorAll("[data-pass-action='view']") as NodeListOf<HTMLButtonElement>);
+	pass_details_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const pass_id = button.closest("tr")!.dataset.passId!;
+			const pass = await fetchPass(pass_id);
+			if (!pass) return;
+
+			const expiry = new Date(pass.created_at).getTime() + pass.duration;
+
+			(document.querySelector("[data-pass-detail='location']") as HTMLParagraphElement).innerText = pass.location;
+			(document.querySelector("[data-pass-detail='duration']") as HTMLParagraphElement).innerText = Math.round(pass.duration / (60 * 1000)) + " minutes";
+			(document.querySelector("[data-pass-detail='created_at']") as HTMLParagraphElement).innerText = formatTimestamp(pass.created_at, "date_time");
+			// if the pass hsan't expired yet, show how long is left
+			(document.querySelector("[data-pass-detail='expires']") as HTMLParagraphElement).innerText = formatTimestamp(expiry, Date.now() < expiry ? "relative" : "time");
+
+			const user = await fetchUser(pass.user_id);
+			if (user) {
+				(document.querySelector("[data-student-detail='name']") as HTMLParagraphElement).innerText = user.name;
+				(document.querySelector("[data-student-detail='restriction_daily']") as HTMLParagraphElement).innerText = `${user.restriction_daily ?? "Unset"}`;
+				(document.querySelector("[data-student-detail='restriction_class']") as HTMLParagraphElement).innerText = `${user.restriction_class ?? "Unset"}`;
+				(document.querySelector("[data-student-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = `${user.failed_pass_attempts ?? 0}`;
+			} else {// if the user was unable to be fetched, just clear the existing fields
+				(document.querySelector("[data-student-detail='restriction_daily']") as HTMLParagraphElement).innerText = "";
+				(document.querySelector("[data-student-detail='restriction_class']") as HTMLParagraphElement).innerText = "";
+				(document.querySelector("[data-student-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = "";
+			}
+			current_active_pass_id = pass._id;
+
+			openModal("passDetailsModal");
+		});
+	});
+</script>

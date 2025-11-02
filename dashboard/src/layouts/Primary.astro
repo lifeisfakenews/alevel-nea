@@ -37,7 +37,8 @@ import "@/styles/table.css";
             <div class="flex f1 v-center">
                 <p class="title">{title}</p>
                 <nav class="flex v-center gap-100">
-                    <a href="/users">User Management</a>
+                    <a href="/users">Users</a>
+                    <a href="/passes">Passes</a>
                 </nav>
                 <div class="push-right">
                     {user ? <Dropdown id="navAccount" label={user.name}>
