@@ -24,6 +24,7 @@ export type User = {
     completed_tours: string[];
 
     // Student fields
+    year_group?: number;
     restriction_daily?: number;
     restriction_class?: number;
     failed_pass_attempts?: number;
@@ -52,6 +53,7 @@ const schema = new Schema({
     completed_tours: { type: [String], required: false, default: [] },
 
     // Student fields
+    year_group: { type: Number, required: false },
     restriction_daily: { type: Number, required: false, default: 0 },
     restriction_class: { type: Number, required: false, default: 0 },
     failed_pass_attempts: { type: Number, required: false, default: 0 },

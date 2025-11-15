@@ -251,11 +251,12 @@ web_server.post("/users/login", async(req, res) => {
 // TODO: This will be restricted to staff only, however to create test accounts easily it isnt.
 web_server.put("/users", async(req, res) => {
     try {
-        const { username, password, name, role } = req.body;
+        const { username, password, name, role, year_group } = req.body;
         if (!username) return res.status(400).send("No username provided");
         if (!password) return res.status(400).send("No password provided");
         if (!name) return res.status(400).send("No name provided");
         if (role === undefined) return res.status(400).send("No role provided");
+        if (role === ROLE_STUDENT && !year_group) return res.status(400).send("No year group provided");
 
         //make sure the role is a number and exists
         if (isNaN(role)) return res.status(400).send("Invalid role");
@@ -274,6 +275,7 @@ web_server.put("/users", async(req, res) => {
             password: hashed_password,
             name: name,
             role: role,
+            year_group: year_group,
         }).save();
 
         return res.status(201).json({
@@ -352,6 +354,7 @@ web_server.put("/users/bulk", async(req, res) => {
                     password: hashed_password,
                     name: user.name,
                     role: user.role,
+                    year_group: user.year_group,
                 }).save();
                 created_users.push(new_user);
             }
@@ -461,6 +464,7 @@ web_server.patch("/users/:user_id", async(req, res) => {
             on_duty: "on_duty" in req.body ? req.body.on_duty : user.on_duty,
             restriction_daily: "restriction_daily" in req.body ? req.body.restriction_daily : user.restriction_daily,
             restriction_class: "restriction_class" in req.body ? req.body.restriction_class : user.restriction_class,
+            year_group: "year_group" in req.body ? req.body.year_group : user.year_group,
         }, { new: true });
         return res.status(200).json({
             success: true,

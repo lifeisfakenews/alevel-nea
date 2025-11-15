@@ -28,6 +28,7 @@ export type User = {
     completed_tours: string[];
 
     // Student fields
+    year_group?: number;
     restriction_daily?: number;
     restriction_class?: number;
     failed_pass_attempts?: number;

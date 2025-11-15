@@ -30,6 +30,9 @@ const restriction_filter_value = user.restriction_daily && user.restriction_clas
         <p class="user-name">{user.name}</p>
         <p class="user-subtext">{user.username}</p>
     </td>
+	<td>
+		{user.year_group ? <p>{user.year_group}</p> : ""}
+	</td>
     <td>
         <p class="user-role" data-user-role={user.role}>{roles[user.role]}</p>
     </td>
@@ -129,6 +132,7 @@ const restriction_filter_value = user.restriction_daily && user.restriction_clas
 				student_details.style.display = "";
 				teacher_details.style.display = "none";
 
+				(document.querySelector("[data-user-detail='year_group']") as HTMLParagraphElement).innerText = `${user.year_group}`;
 				(document.querySelector("[data-user-detail='restriction_daily']") as HTMLParagraphElement).innerText = `${user.restriction_daily ?? "Unset"}`;
 				(document.querySelector("[data-user-detail='restriction_class']") as HTMLParagraphElement).innerText = `${user.restriction_class ?? "Unset"}`;
 				(document.querySelector("[data-user-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = `${user.failed_pass_attempts ?? 0}`;
@@ -180,6 +184,7 @@ const restriction_filter_value = user.restriction_daily && user.restriction_clas
 			(document.querySelector("#userEditOnDuty") as HTMLSelectElement).value = user.on_duty ? "on_duty" : "off_duty";
 			(document.querySelector("#userEditRestrictionDaily") as HTMLInputElement).value = user.restriction_daily?.toString() ?? "";
 			(document.querySelector("#userEditRestrictionClass") as HTMLInputElement).value = user.restriction_class?.toString() ?? "";
+			(document.querySelector("#userEditYearGroup") as HTMLInputElement).value = user.year_group?.toString() ?? "";
 			
 			const user_edit_student_details = document.querySelector("#userEditStudentDetails") as HTMLDivElement;
 			const user_edit_teacher_details = document.querySelector("#userEditTeacherDetails") as HTMLDivElement;

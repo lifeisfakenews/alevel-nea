@@ -124,6 +124,10 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 				<p class="detail-value | push-right" data-student-detail="name"></p>
 			</div>
 			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Year Group</p>
+				<p class="detail-value | push-right" data-student-detail="year_group"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
 				<p class="detail-label">Daily Pass Limit</p>
 				<p class="detail-value | push-right" data-student-detail="restriction_daily"></p>
 			</div>
@@ -289,10 +293,12 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 				(document.querySelector("[data-student-detail='restriction_daily']") as HTMLParagraphElement).innerText = `${user.restriction_daily ?? "Unset"}`;
 				(document.querySelector("[data-student-detail='restriction_class']") as HTMLParagraphElement).innerText = `${user.restriction_class ?? "Unset"}`;
 				(document.querySelector("[data-student-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = `${user.failed_pass_attempts ?? 0}`;
+				(document.querySelector("[data-student-detail='year_group']") as HTMLParagraphElement).innerText = `${user.year_group}`;
 			} else {// if the user was unable to be fetched, just clear the existing fields
 				(document.querySelector("[data-student-detail='restriction_daily']") as HTMLParagraphElement).innerText = "";
 				(document.querySelector("[data-student-detail='restriction_class']") as HTMLParagraphElement).innerText = "";
 				(document.querySelector("[data-student-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = "";
+				(document.querySelector("[data-student-detail='year_group']") as HTMLParagraphElement).innerText = "";
 			}
 			current_active_pass_id = pass._id;
 
