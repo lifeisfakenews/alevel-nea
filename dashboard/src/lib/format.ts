@@ -24,8 +24,8 @@ export function formatTimestamp(date: Date | number | string, format: "relative"
         const diff_hours = Math.round(diff_minutes / 60);
 
         if (diff_hours > 1) return `in ${diff_hours} hour${diff_hours === 1 ? "" : "s"}`;
-        if (diff_minutes > 1) return `in ${diff_minutes} minutes${diff_minutes === 1 ? "" : "s"}`;
-        if (diff_seconds > 1) return `in ${diff_seconds} seconds${diff_seconds === 1 ? "" : "s"}`;
+        if (diff_minutes > 1) return `in ${diff_minutes} minute${diff_minutes === 1 ? "" : "s"}`;
+        if (diff_seconds > 1) return `in ${diff_seconds} second${diff_seconds === 1 ? "" : "s"}`;
         return "now";
     };
 
@@ -59,10 +59,10 @@ export function formatTimestamp(date: Date | number | string, format: "relative"
 
 // takes duration in milliseconds
 export function formatDuration(duration: number) {
-    const seconds = Math.round(duration / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
+    const seconds = Math.floor(duration / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
 
     if (days > 0) return `${days} day${days === 1 ? "" : "s"}`;
     if (hours > 0) return `${hours} hour${hours === 1 ? "" : "s"}`;

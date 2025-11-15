@@ -8,6 +8,9 @@ import { randomUUID } from "crypto";
 import { db_users, db_passes, db_restrictions } from "@/schemas";
 import type { User, Pass, Restriction } from "@/schemas";
 
+import CLASSROOMS from "@/locations/classrooms";
+import DESTINATIONS from "@/locations/destinations";
+
 //Define key constants
 const ROLE_STUDENT = 0;
 const ROLE_TEACHER = 1;
@@ -526,8 +529,8 @@ web_server.post("/users/@me/tours/:tour_id", async(req, res) => {
 });
 
 
-// Create a pass. Body requires `location` and `duration`.
-// only student accounts can use this endpoint
+// Create a pass. Body requires `destination`, `origin` and `duration`.
+// only student accounts can use this endpoint. Destination and origin must be valid classrooms and destinations respectively
 web_server.put("/passes", async(req, res) => {
     try {
         const authCheck = await validateAuthHeader(req.headers.authorization);
@@ -536,23 +539,33 @@ web_server.put("/passes", async(req, res) => {
         const roleCheck = await checkUserRole(authCheck.user, [ROLE_STUDENT]);
         if (!roleCheck) return res.status(403).send("Missing permissions");
     
-        const { location, duration } = req.body;
-        if (!location || !duration) return res.status(400).send("No location or duration provided");
+        const { destination, origin, duration } = req.body;
+        if (!destination) return res.status(400).send("No destination provided");
+        if (!DESTINATIONS.find(x => x.id === destination)) return res.status(400).send("Invalid destination");
+
+        if (!origin) return res.status(400).send("No origin provided");
+        if (!CLASSROOMS.find(x => x.name === origin)) return res.status(400).send("Invalid origin");
+
+        if (!duration) return res.status(400).send("No duration provided");
         if (isNaN(duration) || duration < 0) return res.status(400).send("Invalid duration");
         if (duration > MAX_PASS_DURATION) return res.status(400).send("Duration too long");
     
+        const users_active_passes = await db_passes.countDocuments({ user_id: authCheck.user._id, completed_at: { $exists: false } });
+        if (users_active_passes > 0) return res.status(409).send("Cannot create a pass while you have an active pass");
+
         const user = authCheck.user;
-        const passes_restrictions = await checkRestrictions(user, location);
+        const passes_restrictions = await checkRestrictions(user, destination);
         if (!passes_restrictions) return res.status(400).send("Does not follow restrictions");
     
         // check for student grouping
-        const does_not_create_group = await checkStudentGrouping(user, location);
+        const does_not_create_group = await checkStudentGrouping(user, destination);
         if (!does_not_create_group) return res.status(400).send("Group too large");
     
         // create the pass
         const pass = await new db_passes({
             user_id: user._id,
-            location: location,
+            destination: destination,
+            origin: origin,
             duration: duration,
         }).save();
         return res.status(201).json({
@@ -616,6 +629,35 @@ web_server.get("/passes/:pass_id", async(req, res) => {
     }
 });
 
+// Mark a pass as completed
+// Only student accounts can use this endpoint, can the student must own the pass
+web_server.post("/passes/:pass_id/complete", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_STUDENT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { pass_id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(pass_id)) return res.status(404).send("Pass not found");
+        const pass = await db_passes.findById(pass_id);
+        if (!pass) return res.status(404).send("Pass not found");
+        if (pass.user_id !== authCheck.user._id) return res.status(403).send("You are not the owner of this pass");
+        if (pass.completed_at) return res.status(409).send("Pass already completed");
+
+        const result = await db_passes.findByIdAndUpdate(pass_id, {
+            completed_at: new Date(),
+        }, { new: true });
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on POST \`/passes/:pass_id/complete\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 // List restrictions
 // requires a teacher account or above
@@ -792,24 +834,6 @@ web_server.delete("/restrictions/:restriction_id", async(req, res) => {
         return res.status(500).send("Internal server error");
     }
 });
-
-
-// Expire passes
-
-setInterval(async() => {
-    // first get all active passes
-    const active_passes = await db_passes.find({ state: "active" });
-    // then for each active pass, check if it has expired
-    for (const pass of active_passes) {
-        const duration_remaining = (new Date(pass.created_at).getTime() + pass.duration) - Date.now();//in milliseconds
-        if (duration_remaining < 0) {
-            // if it has expired, update the state to expired
-            await db_passes.findByIdAndUpdate(pass._id, {
-                state: "expired",
-            });
-        };
-    };
-}, 10000);
 
 
 process.on("unhandledRejection", handleError);

@@ -5,11 +5,15 @@ import { Image } from 'expo-image';
 import { StyleSheet, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Redirect, useRouter } from "expo-router";
 import { useFocusEffect } from '@react-navigation/native';
+import { Picker } from "@react-native-picker/picker";
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/button';
+
+import DESTINATIONS from "@/lib/locations/destinations";
+import CLASSROOMS from "@/lib/locations/classrooms";
 
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
@@ -18,8 +22,9 @@ export default function CreatePassScreen() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     
-    const [location, setLocation] = useState("");
     const [duration, setDuration] = useState("");
+    const [origin, setOrigin] = useState("");
+    const [destination, setDestination] = useState("");
 
     const router = useRouter();
 
@@ -39,10 +44,11 @@ export default function CreatePassScreen() {
     if (!user) return <Redirect href="/login" />;
 
     async function formSubmit() {
-        if (!location || !duration) return Alert.alert("Missing location or duration");
+        if (!destination || !origin || !duration) return Alert.alert("Missing destination, origin or duration");
 
         const result = await request<Pass>("passes", "PUT", {
-            location: location,
+            destination: destination,
+            origin: origin,
             duration: parseInt(duration) * 60 * 1000,
         });
 
@@ -53,26 +59,29 @@ export default function CreatePassScreen() {
         };
     }
     
-    return (
-        <ParallaxScrollView
-        headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-            headerImage={
-                <Image source={require('@/assets/images/partial-react-logo.png')} style={styles.reactLogo} />
-            }>
-            <ThemedView style={styles.titleContainer}>
-                <ThemedText type="subtitle">Create a Pass</ThemedText>
-            </ThemedView>
-            <ThemedView style={styles.stepContainer}>
-                <ThemedText type="subtitle">Location</ThemedText>
-                <TextInput value={location} onChangeText={setLocation} style={{ backgroundColor: "#555", color: "#ffffff", borderRadius: 10,fontSize: 18 }} />
+    return <ParallaxScrollView headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }} headerImage={
+        <Image source={require('@/assets/images/partial-react-logo.png')} style={styles.reactLogo} />
+    }>
+        <ThemedView style={styles.titleContainer}>
+            <ThemedText type="subtitle">Create a Pass</ThemedText>
+        </ThemedView>
+        <ThemedView style={styles.stepContainer}>
+            <ThemedText type="subtitle">Origin</ThemedText>
+            <Picker selectedValue={origin} onValueChange={setOrigin} style={{ backgroundColor: "#555", color: "#ffffff", borderRadius: 10,fontSize: 18 }}>
+                {CLASSROOMS.map(x => <Picker.Item key={x.name} label={x.name} value={x.name} />)}
+            </Picker>
 
-                <ThemedText type="subtitle">Duration (minutes)</ThemedText>
-                <TextInput inputMode="numeric" value={duration} onChangeText={setDuration} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
+            <ThemedText type="subtitle">Destination</ThemedText>
+            <Picker selectedValue={destination} onValueChange={setDestination} style={{ backgroundColor: "#555", color: "#ffffff", borderRadius: 10,fontSize: 18 }}>
+                {DESTINATIONS.map(x => <Picker.Item key={x.id} label={x.name} value={x.id} />)}
+            </Picker>
 
-                <Button onPress={formSubmit}>Create Pass</Button>
-            </ThemedView>
-      </ParallaxScrollView>
-    );
+            <ThemedText type="subtitle">Duration (minutes)</ThemedText>
+            <TextInput inputMode="numeric" value={duration} onChangeText={setDuration} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
+
+            <Button onPress={formSubmit}>Create Pass</Button>
+        </ThemedView>
+    </ParallaxScrollView>
 }
 
 const styles = StyleSheet.create({

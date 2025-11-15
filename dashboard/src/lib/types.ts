@@ -1,3 +1,6 @@
+import CLASSROOMS from "@/lib/locations/classrooms";
+import DESTINATIONS from "@/lib/locations/destinations";
+
 export enum UserRole {
     STUDENT,
     TEACHER,
@@ -33,15 +36,19 @@ export type User = {
     on_duty?: boolean;
 }
 
+const classroom_names = CLASSROOMS.map(x => x.name);
+const destination_ids = DESTINATIONS.map(x => x.id);
+
 export type Pass = {
     _id: string;
     created_at: string;
     updated_at: string;
     
     user_id: string;
-    location: string;
+    completed_at?: string;
+    origin: typeof classroom_names[number];
+    destination: typeof destination_ids[number];
     duration: number;
-    state: "active" | "expired";
 }
 
 export type Restriction = {

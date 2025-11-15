@@ -11,6 +11,8 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
+import DESTINATIONS from "@/lib/locations/destinations";
+
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
 
@@ -50,11 +52,11 @@ export default function PassesScreen() {
                 <ThemedText type="subtitle">Your passes ({passes.length ?? 0})</ThemedText>
             </ThemedView>
             {passes.reverse().map(pass => <ThemedView style={styles.stepContainer} key={pass._id}>
-                <ThemedText type="subtitle">{pass.location}</ThemedText>
-                <ThemedText type="default">{Math.round(pass.duration / (1000 * 60))} minutes</ThemedText>
+                <ThemedText type="subtitle">{DESTINATIONS.find(x => x.id === pass.destination)?.name ?? pass.destination}</ThemedText>
+                <ThemedText type="default">{pass.origin} • {Math.round(pass.duration / (1000 * 60))} minutes</ThemedText>
                 <ThemedText type="small">
                     Created {new Date(pass.created_at).toLocaleString()} • 
-                    {pass.state === "active" ? <ThemedText type="link">Active</ThemedText> : ""}
+                    {pass.completed_at ? "" : <ThemedText type="link">Active</ThemedText>}
                 </ThemedText>
             </ThemedView>)}
       </ParallaxScrollView>

@@ -2,7 +2,8 @@
 
 import request from "@/lib/request";
 import { type Pass, type User } from "@/lib/types";
-import { formatTimestamp } from "@/lib/format";
+import { formatTimestamp, formatDuration } from "@/lib/format";
+import DESTINATIONS from "@/lib/locations/destinations";
 
 import Layout from "@/layouts/Primary.astro";
 import Dropdown from "@/components/Dropdown.astro";
@@ -20,7 +21,7 @@ if (user_result.success) users = user_result.data;
 //passes are automatically sorted by data as they are in the order they were created so we just need to reverse it
 passes.reverse();
 
-const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCase())));
+const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 
 ---
 
@@ -31,11 +32,12 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			<select class="input input-select" id="stateSelect">
 				<option value=""></option>
 				<option value="active">Active</option>
-				<option value="expired">Expired</option>
+				<option value="on_time">Returned Ontime</option>
+				<option value="late">Returned Late</option>
 			</select>
-			<select class="input input-select" id="locationSelect">
+			<select class="input input-select" id="destinationSelect">
 				<option value=""></option>
-				{location_options.map(x => <option value={x}>{x}</option>)}
+				{destination_options.map(x => <option value={x}>{DESTINATIONS.find(y => y.id === x)?.name ?? x}</option>)}
 			</select>
 			<select class="input input-select" id="createdSelect">
 				<option value=""></option>
@@ -51,7 +53,7 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			<tr>
 				<th>Pass</th>
 				<th>Created</th>
-				<th>Expires</th>
+				<th>State</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -59,21 +61,21 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			{passes.map(pass => {
 				const pass_creator = users.find(u => u._id === pass.user_id)!;
 				const pass_expiry = new Date(pass.created_at).getTime() + pass.duration;
-				const seconds_remaining = Math.round((pass_expiry - Date.now()) / 1000);
-				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-state={pass.state} data-pass-location={pass.location.toLowerCase()} data-pass-created-at={pass.created_at}>
+				const state = pass.completed_at ? new Date(pass.completed_at).getTime() > pass_expiry ? "late" : "on_time" : "active";
+				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-state={state} data-pass-destination={pass.destination} data-pass-created-at={pass.created_at}>
 					<td>
-						<p class="pass-name">{pass.location}</p>
-						<p class="pass-subtext">{Math.round(pass.duration / (60 * 1000))} minutes</p>
+						<p class="pass-name">{DESTINATIONS.find(x => x.id === pass.destination)?.name ?? pass.destination}</p>
+						<p class="pass-subtext">From {pass.origin} • {formatDuration(pass.duration)}</p>
 					</td>
 					<td>				
 						<p>{pass_creator.name}</p>
 						<p class="pass-subtext smaller">on {formatTimestamp(pass.created_at, "date_time")}</p>
 					</td>
 					<td>
-						{pass_expiry > Date.now() ? <>
-							<p>{seconds_remaining > 60 ? `${Math.round(seconds_remaining / 60)} minutes` : `${seconds_remaining} seconds`}</p>
+						{pass_expiry > Date.now() && !pass.completed_at ? <>
+							<p>{formatDuration(pass.duration)}</p>
 							<p class="pass-subtext smaller">Expires at {formatTimestamp(pass_expiry, "time")}</p>
-						</> : <p class="pass-expired">Expired</p>}
+						</> : state == "late" ? <p class="pass-expired pass-late">Late</p> : <p class="pass-expired">On Time</p>}
 					</td>
 					<td>
 						<Dropdown id={"passActions__" + pass._id} three_dots>
@@ -91,8 +93,12 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 		<div class="detail-card">
 			<h3 class="detail-heading">Overview</h3>
 			<div class="detail-row | flex v-center gap-100">
-				<p class="detail-label">Location</p>
-				<p class="detail-value | push-right" data-pass-detail="location"></p>
+				<p class="detail-label">Destination</p>
+				<p class="detail-value | push-right" data-pass-detail="destination"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Origin</p>
+				<p class="detail-value | push-right" data-pass-detail="origin"></p>
 			</div>
 			<div class="detail-row | flex v-center gap-100">
 				<p class="detail-label">Duration</p>
@@ -105,6 +111,10 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			<div class="detail-row | flex v-center gap-100">
 				<p class="detail-label">Expires</p>
 				<p class="detail-value | push-right" data-pass-detail="expires"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">State</p>
+				<p class="detail-value | push-right" data-pass-detail="state"></p>
 			</div>
 		</div>
 		<div class="detail-card" id="passDetailsStudent">
@@ -146,12 +156,16 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 
 	.pass-expired {
 		background: var(--nea-clr-dark-900);
-		border: .1rem solid var(--nea-clr-warning-400);
+		border: .1rem solid var(--nea-clr-primary-400);
 		border-radius: 100vmax;
 		padding: .3rem .8rem;
 		width: fit-content;
 		font-size: 1.4rem;
 		color: var(--nea-clr-text-100);
+		
+		&.pass-late {
+			border-color: var(--nea-clr-warning-400);
+		}
 	}
 
 	th:last-child {
@@ -178,14 +192,15 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 
 <script>
 	import { fetchUser, fetchPass } from "@/lib/fetch";
-	import { formatTimestamp } from "@/lib/format";
+	import { formatDuration, formatTimestamp } from "@/lib/format";
 	import { start as startTour } from "@/lib/tutorial";
+	import DESTINATIONS from "@/lib/locations/destinations";
 
-	let search_query = "", state_filter = "", location_filter = "", created_filter = "";
+	let search_query = "", state_filter = "", destination_filter = "", created_filter = "";
 
 	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
 	const state_select = document.querySelector("#stateSelect") as HTMLSelectElement;
-	const location_select = document.querySelector("#locationSelect") as HTMLSelectElement;
+	const destination_select = document.querySelector("#destinationSelect") as HTMLSelectElement;
 	const created_select = document.querySelector("#createdSelect") as HTMLSelectElement;
 
 	search_input.addEventListener("input", () => {
@@ -196,8 +211,8 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 		state_filter = state_select.value;
 		filterTable();
 	});
-	location_select.addEventListener("change", () => {
-		location_filter = location_select.value;
+	destination_select.addEventListener("change", () => {
+		destination_filter = destination_select.value;
 		filterTable();
 	});
 	created_select.addEventListener("change", () => {
@@ -210,12 +225,12 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
 			const row_name = row.dataset.passCreatedBy!;
 			const row_state = row.dataset.passState!;
-			const row_location = row.dataset.passLocation!;
+			const row_destination = row.dataset.passDestination!;
 			const row_created = new Date(row.dataset.passCreatedAt!).getTime();
-
+			console.log(row_destination);
+			console.log(destination_filter);
 			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
-			let created_filter_value
-			 = 0;
+			let created_filter_value = 0;
 			if (created_filter !== "") {
 				const [unit, amount] = created_filter.split("_");
 				const days_ms = 24 * 60 * 60 * 1000;
@@ -232,11 +247,11 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 
 			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
 			const matches_state = state_filter === "" ? true : row_state === state_filter;
-			const matches_location = location_filter === "" ? true : row_location === location_filter;
+			const matches_destination = destination_filter === "" ? true : row_destination === destination_filter;
 			const matches_created = created_filter_value === 0 ? true : row_created > Date.now() - created_filter_value;
 
 			// if the row matches all filters, show it, otherwise hide it
-			if (matches_search && matches_state && matches_location && matches_created) {
+			if (matches_search && matches_state && matches_destination && matches_created) {
 				row.style.display = "";
 			} else {
 				row.style.display = "none";
@@ -260,11 +275,13 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 
 			const expiry = new Date(pass.created_at).getTime() + pass.duration;
 
-			(document.querySelector("[data-pass-detail='location']") as HTMLParagraphElement).innerText = pass.location;
-			(document.querySelector("[data-pass-detail='duration']") as HTMLParagraphElement).innerText = Math.round(pass.duration / (60 * 1000)) + " minutes";
+			(document.querySelector("[data-pass-detail='destination']") as HTMLParagraphElement).innerText = DESTINATIONS.find(x => x.id === pass.destination)?.name ?? pass.destination;
+			(document.querySelector("[data-pass-detail='origin']") as HTMLParagraphElement).innerText = pass.origin;
+			(document.querySelector("[data-pass-detail='duration']") as HTMLParagraphElement).innerText = formatDuration(pass.duration);
 			(document.querySelector("[data-pass-detail='created_at']") as HTMLParagraphElement).innerText = formatTimestamp(pass.created_at, "date_time");
 			// if the pass hsan't expired yet, show how long is left
 			(document.querySelector("[data-pass-detail='expires']") as HTMLParagraphElement).innerText = formatTimestamp(expiry, Date.now() < expiry ? "relative" : "time");
+			(document.querySelector("[data-pass-detail='state']") as HTMLParagraphElement).innerText = pass.completed_at ? new Date(pass.completed_at).getTime() > expiry ? "Late" : "On Time" : "Active";
 
 			const user = await fetchUser(pass.user_id);
 			if (user) {
