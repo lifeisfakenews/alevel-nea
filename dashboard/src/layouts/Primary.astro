@@ -32,16 +32,18 @@ import "@/styles/table.css";
 
         <title>{title + " - NEA Dashboard"}</title>
     </head>
-    <body>
+    <body data-completed-tours={user.completed_tours}>
         <header class="flex h-center">
             <div class="flex f1 v-center">
                 <p class="title">{title}</p>
                 <nav class="flex v-center gap-100">
                     <a href="/users">Users</a>
                     <a href="/passes">Passes</a>
+                    <a href="/restrictions">Restrictions</a>
                 </nav>
                 <div class="push-right">
                     {user ? <Dropdown id="navAccount" label={user.name}>
+                        <button id="navTutorial">View Tutorial</button>
                         <hr />
                         <button id="navLogout">Logout</button>
                     </Dropdown> : <a href="/login" class="button primary">Login</a>}
@@ -94,11 +96,19 @@ import "@/styles/table.css";
 </style>
 
 <script>
+    import { start as startTour } from "@/lib/tutorial";
+
     const logout_button = document.querySelector("#navLogout") as HTMLButtonElement;
     if (logout_button) logout_button.addEventListener("click", () => {
         // remove the token cookie
         document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;";
         // redirect to the login page
         window.location.href = "/login";
+    });
+
+    const tutorial_button = document.querySelector("#navTutorial") as HTMLButtonElement;
+    if (tutorial_button) tutorial_button.addEventListener("click", () => {
+        const page = window.location.pathname.split("/")[1] as "users" | "passes" | "restrictions";
+        startTour(`dash_${page}`);
     });
 </script>

@@ -1,0 +1,352 @@
+---
+
+import request from "@/lib/request";
+import { type Restriction } from "@/lib/types";
+
+import Layout from "@/layouts/Primary.astro";
+import Button from "@/components/Button.astro";
+import Modal from "@/components/Modal.astro";
+import RestrictionRow from "@/components/RestrictionRow.astro";
+import BulkSelect from "@/components/BulkSelect.astro";
+
+const result = await request<Restriction[]>("restrictions", "GET", undefined, Astro);
+let restrictions:Restriction[] = [];
+if (result.success) restrictions = result.data;
+
+//sort expired restrictions to the bottom, then by name
+restrictions.sort((a,b) => {
+	const a_expiry = new Date(a.created_at).getTime() + a.ttl;
+	const b_expiry = new Date(b.created_at).getTime() + b.ttl;
+	if (a_expiry < Date.now() && b_expiry < Date.now()) return a.name.localeCompare(b.name);
+	return b_expiry - a_expiry;
+});
+
+---
+
+<Layout title="Restrictions">
+	<div class="flex v-center">
+		<div class="push-right" data-tour-target="restrictions_create">
+			<Button id="addRestrictionButton" text="Add Restriction" theme="dark" modifiers={["no-mgi"]} />
+		</div>
+	</div>
+	<div class="flex v-center" style="margin-block: 1rem" data-tour-target="restrictions_filter">
+		<input type="search" placeholder="Search restrictions" class="input input-search" id="searchInput" />
+		<div class="push-right flex v-center gap-100">
+			<select class="input input-select" id="typeSelect">
+				<option value=""></option>
+				<option value="area">Area</option>
+				<option value="frequency">Frequency</option>
+			</select>
+
+			<select class="input input-select" id="statusSelect">
+				<option value=""></option>
+				<option value="active">Active</option>
+				<option value="expired">Expired</option>
+			</select>
+		</div>
+	</div>
+	<table data-tour-target="restrictions_table">
+		<thead>
+			<tr>
+				<th data-table-column="select">
+					<label class="bulk-select">
+						<input type="checkbox" data-table-control="true" />
+					</label>
+				</th>
+				<th>Restriction</th>
+				<th>Type</th>
+				<th>Amount</th>
+				<th>Interval</th>
+				<th>TTL</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody data-table-empty="No restrictions found">
+			{restrictions.map(restriction => <RestrictionRow restriction={restriction} />)}
+		</tbody>
+	</table>
+</Layout>
+
+<BulkSelect type="restrictions" />
+
+<Modal id="restrictionDetailsModal" title="Restriction Details">
+	<div data-tour-target="restrictions_details">
+		<div class="detail-card">
+			<h3 class="detail-heading">Overview</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Name</p>
+				<p class="detail-value | push-right" data-restriction-detail="name"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Type</p>
+				<p class="detail-value | push-right restriction-type" data-restriction-detail="type"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Amount</p>
+				<p class="detail-value | push-right" data-restriction-detail="amount"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">TTL</p>
+				<p class="detail-value | push-right" data-restriction-detail="ttl"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Created</p>
+				<p class="detail-value | push-right" data-restriction-detail="created_at"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Location</p>
+				<p class="detail-value | push-right" data-restriction-detail="target"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Interval</p>
+				<p class="detail-value | push-right" data-restriction-detail="interval"></p>
+			</div>
+		</div>
+		<div class="flex v-center gap-200">
+			<Button id="restrictionDeleteButton" text="Delete Restriction" theme="dark" modifiers={["no-mgi"]} />
+			<Button id="restrictionEditButton" text="Edit Restriction" theme="dark" modifiers={["no-mgi"]} />
+		</div>
+	</div>
+</Modal>
+
+<Modal id="restrictionCreateModal" title="New Restriction">
+	<form id="restrictionCreateForm">
+		<label for="restrictionCreateName" class="label">Name</label>
+		<input type="text" id="restrictionCreateName" class="input" required />
+
+		<label for="restrictionCreateType" class="label">Type</label>
+		<select id="restrictionCreateType" class="input input-select" required>
+			<option value="area">Area</option>
+			<option value="frequency">Frequency</option>
+		</select>
+
+		<label for="restrictionCreateAmount" class="label">Amount</label>
+		<input type="number" id="restrictionCreateAmount" class="input" min="0" />
+
+		<label for="restrictionCreateInterval" class="label">Interval (hours)</label>
+		<input type="number" id="restrictionCreateInterval" class="input" min="0" />
+
+		<label for="restrictionCreateTTL" class="label">TTL (hours)</label>
+		<input type="number" id="restrictionCreateTTL" class="input" min="0" />
+
+		<label for="restrictionCreateTarget" class="label">Location</label>
+		<input type="text" id="restrictionCreateTarget" class="input" />
+
+		<div class="flex v-center gap-200">
+			<Button type="submit" text="Save" theme="primary" />
+			<p class="input-error" id="restrictionCreateError"></p>
+		</div>
+	</form>
+</Modal>
+
+<Modal id="restrictionEditModal" title="Edit Restriction">
+	<form id="restrictionEditForm" data-tour-target="restrictions_edit">
+		<label for="restrictionEditName" class="label">Name</label>
+		<input type="text" id="restrictionEditName" class="input" required />
+
+		<label for="restrictionEditType" class="label">Type</label>
+		<select id="restrictionEditType" class="input input-select" required>
+			<option value="area">Area</option>
+			<option value="frequency">Frequency</option>
+		</select>
+
+		<label for="restrictionEditAmount" class="label">Amount</label>
+		<input type="number" id="restrictionEditAmount" class="input" min="0" />
+
+		<label for="restrictionEditInterval" class="label">Interval (hours)</label>
+		<input type="number" id="restrictionEditInterval" class="input" min="0" />
+
+		<label for="restrictionEditTTL" class="label">TTL (hours)</label>
+		<input type="number" id="restrictionEditTTL" class="input" min="0" />
+
+		<label for="restrictionEditTarget" class="label">Location</label>
+		<input type="text" id="restrictionEditTarget" class="input" />
+
+		<div class="flex v-center gap-200">
+			<Button type="submit" text="Save" theme="primary" />
+			<p class="input-error" id="restrictionEditError"></p>
+		</div>
+	</form>
+</Modal>
+
+<style>
+	.detail-card {
+		border: .1rem solid var(--nea-clr-dark-400);
+		border-radius: .5rem;
+		padding: 1rem;
+		margin-bottom: 1rem;
+
+		.detail-heading {
+			color: var(--nea-clr-primary-400);
+			font-size: 1.6rem;
+			margin-block: 0 .5rem;
+		}
+
+		.detail-label {
+			font-weight: 800;
+		}
+	}
+</style>
+
+<script>
+	import request from "@/lib/request";
+	import { fetchRestriction } from "@/lib/fetch";
+	import { start as startTour } from "@/lib/tutorial";
+
+	let search_query = "", type_filter = "", status_filter = "";
+
+	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
+	const type_select = document.querySelector("#typeSelect") as HTMLSelectElement;
+	const status_select = document.querySelector("#statusSelect") as HTMLSelectElement;
+
+	search_input?.addEventListener("input", () => {
+		search_query = search_input.value;
+		filterTable();
+	});
+	type_select?.addEventListener("change", () => {
+		type_filter = type_select.value;
+		filterTable();
+	});
+	status_select?.addEventListener("change", () => {
+		status_filter = status_select.value;
+		filterTable();
+	});
+
+	function filterTable() {
+		const table = document.querySelector("table") as HTMLTableElement;
+		if (!table) return;
+		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
+			const row_name = row.dataset.restrictionName ?? "";
+			const row_target = row.dataset.restrictionTarget ?? "";
+			const row_type = row.dataset.restrictionType ?? "";
+			const row_expiry = Number(row.dataset.restrictionExpiry) || 0;
+
+			const matches_search = search_query === "" ? true : (row_name + " " + row_target).toLowerCase().includes(search_query.toLowerCase());
+			const matches_type = type_filter === "" ? true : row_type === type_filter;
+			const matches_status = status_filter === "" ? true : (status_filter === "active" ? row_expiry > Date.now() : row_expiry <= Date.now());
+
+			if (matches_search && matches_type && matches_status) {
+				row.style.display = "";
+			} else {
+				row.style.display = "none";
+			}
+		}
+	}
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const seen_tours = (document.querySelector("body") as HTMLBodyElement).dataset.completedTours?.split(",") ?? [];
+		if (!seen_tours.includes("dash_restrictions")) startTour("dash_restrictions");
+	});
+
+	const restriction_edit_form = document.querySelector("#restrictionEditForm") as HTMLFormElement;
+	restriction_edit_form?.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		const error = restriction_edit_form.querySelector("#restrictionEditError") as HTMLParagraphElement;
+		const button = restriction_edit_form.querySelector("button") as HTMLButtonElement;
+		if (button.classList.contains("loading")) return;
+		button.classList.add("loading");
+		error.innerText = "";
+
+		try {
+			const name_input = restriction_edit_form.querySelector("#restrictionEditName") as HTMLInputElement;
+			const type_input = restriction_edit_form.querySelector("#restrictionEditType") as HTMLSelectElement;
+			const amount_input = restriction_edit_form.querySelector("#restrictionEditAmount") as HTMLInputElement;
+			const interval_input = restriction_edit_form.querySelector("#restrictionEditInterval") as HTMLInputElement;
+			const ttl_input = restriction_edit_form.querySelector("#restrictionEditTTL") as HTMLInputElement;
+			const target_input = restriction_edit_form.querySelector("#restrictionEditTarget") as HTMLInputElement;
+
+			const payload: any = {
+				name: name_input.value,
+				type: type_input.value,
+				amount: amount_input.value ? Number(amount_input.value) : undefined,
+				interval: interval_input.value ? Number(interval_input.value) * 60 * 60 * 1000 : undefined,
+				ttl: ttl_input.value ? Number(ttl_input.value) * 60 * 60 * 1000 : undefined,
+				target: target_input.value ?? undefined,
+			};
+
+			const result = await request(`restrictions/${window.current_active_restriction_id}`, "PATCH", payload);
+			if (result.success) {
+				location.reload();
+			} else {
+				error.innerText = result.error;
+			}
+		} catch(e) {
+			console.error(e);
+			error.innerText = "Failed to save changes. An unexpected error occured.";
+		} finally {
+			button.classList.remove("loading");
+		}
+	});
+
+	const restriction_create_button = document.querySelector("#addRestrictionButton") as HTMLButtonElement;
+	restriction_create_button?.addEventListener("click", () => {
+		openModal("restrictionCreateModal");
+	});
+
+	const restriction_create_form = document.querySelector("#restrictionCreateForm") as HTMLFormElement;
+	restriction_create_form?.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		const error = restriction_create_form.querySelector("#restrictionCreateError") as HTMLParagraphElement;
+		const button = restriction_create_form.querySelector("button") as HTMLButtonElement;
+		if (button.classList.contains("loading")) return;
+		button.classList.add("loading");
+		error.innerText = "";
+
+		try {
+			const name_input = restriction_create_form.querySelector("#restrictionCreateName") as HTMLInputElement;
+			const type_input = restriction_create_form.querySelector("#restrictionCreateType") as HTMLSelectElement;
+			const amount_input = restriction_create_form.querySelector("#restrictionCreateAmount") as HTMLInputElement;
+			const interval_input = restriction_create_form.querySelector("#restrictionCreateInterval") as HTMLInputElement;
+			const ttl_input = restriction_create_form.querySelector("#restrictionCreateTTL") as HTMLInputElement;
+			const target_input = restriction_create_form.querySelector("#restrictionCreateTarget") as HTMLInputElement;
+
+			const result = await request("restrictions", "PUT", {
+				name: name_input.value,
+				type: type_input.value,
+				amount: amount_input.value ? Number(amount_input.value) : undefined,
+				interval: interval_input.value ? Number(interval_input.value) * 60 * 60 * 1000 : undefined,
+				ttl: ttl_input.value ? Number(ttl_input.value) * 60 * 60 * 1000 : undefined,
+				target: target_input.value ?? undefined,
+			});
+			if (result.success) {
+				location.reload();
+			} else {
+				error.innerText = result.error;
+			}
+		} catch(e) {
+			console.error(e);
+			error.innerText = "Failed to create restriction. An unexpected error occured.";
+		} finally {
+			button.classList.remove("loading");
+		}
+	});
+
+	const restriction_delete_button = document.querySelector("#restrictionDeleteButton") as HTMLButtonElement;
+	restriction_delete_button?.addEventListener("click", async() => {
+		const restriction_id = window.current_active_restriction_id!;
+		if (!confirm(`Are you sure you want to delete ${restriction_id}?`)) return;
+
+		const result = await request<void>(`restrictions/${restriction_id}`, "DELETE");
+		if (result.success) {
+			location.reload();
+		} else {
+			alert(`Error deleting restriction:\n ${result.error}`);
+		};
+	});
+
+	const restriction_edit_button = document.querySelector("#restrictionEditButton") as HTMLButtonElement;
+	restriction_edit_button?.addEventListener("click", async() => {
+		const restriction_id = window.current_active_restriction_id!;
+		const restriction = await fetchRestriction(restriction_id);
+		if (!restriction) return;
+
+		(document.querySelector("#restrictionEditName") as HTMLInputElement).value = restriction.name ?? "";
+		(document.querySelector("#restrictionEditType") as HTMLSelectElement).value = restriction.type ?? "area";
+		(document.querySelector("#restrictionEditAmount") as HTMLInputElement).value = restriction.amount?.toString() ?? "";
+		(document.querySelector("#restrictionEditInterval") as HTMLInputElement).value = restriction.interval ? String(Math.round(restriction.interval / (60 * 60 * 1000))) : "";
+		(document.querySelector("#restrictionEditTTL") as HTMLInputElement).value = restriction.ttl ? String(Math.round(restriction.ttl / (60 * 60 * 1000))) : "";
+		(document.querySelector("#restrictionEditTarget") as HTMLInputElement).value = restriction.target ?? "";
+
+		openModal("restrictionEditModal");
+	});
+</script>

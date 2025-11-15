@@ -1,0 +1,176 @@
+---
+
+import { type Restriction } from "@/lib/types";
+import Dropdown from "./Dropdown.astro";
+import { formatTimestamp, formatDuration } from "@/lib/format";
+
+export type Props = {
+    restriction: Restriction;
+}
+
+const { restriction } = Astro.props;
+
+const restriction_types = {
+    "area": "Area",
+    "frequency": "Frequency",
+}
+
+const restriction_expiry = new Date(restriction.created_at).getTime() + (restriction.ttl ?? 0);
+const ms_remaining = restriction_expiry - Date.now();
+
+--- 
+<tr data-restriction-id={restriction._id} data-restriction-name={restriction.name} data-restriction-type={restriction.type} data-restriction-expiry={restriction_expiry} data-restriction-target={restriction.target}>
+    <td data-table-column="select">
+        <label class="bulk-select">
+            <input type="checkbox" />
+        </label>
+    </td>
+    <td>
+        <p class="restriction-name">{restriction.name}</p>
+        <p class="restriction-subtext">{restriction.target}</p>
+    </td>
+    <td>
+        <p class="restriction-type" data-restriction-type={restriction.type}>{restriction_types[restriction.type]}</p>
+    </td>
+    <td>
+        <p class="restriction-amount">{restriction.amount ?? 0}</p>
+    </td>
+    <td>
+        <p class="restriction-interval">{restriction.interval && restriction.interval !== 0 ? formatDuration(restriction.interval ?? 0) : "None"}</p>
+    </td>
+    <td>
+        {!restriction.ttl || restriction.ttl === 0 ? <p class="restriction-forever">Permanent</p> : restriction_expiry > Date.now() ? <>
+            <p>{formatDuration(ms_remaining)}</p>
+            <p class="restriction-subtext smaller">Expires at {formatTimestamp(restriction_expiry, "time")}</p>
+        </> : <p class="restriction-expired">Expired</p>}
+    </td>
+    <td>
+        <Dropdown id={"restrictionActions__" + restriction._id} three_dots>
+            <button data-restriction-action="view">View Details</button>
+            <button data-restriction-action="edit">Edit</button>
+            <hr />
+            <button data-restriction-action="delete">Delete</button>
+        </Dropdown>
+    </td>
+</tr>
+
+<style>
+    .restriction-name {
+		font-weight: 800;
+		font-size: 1.8rem;
+		color: var(--nea-clr-text-100);
+	}
+	.restriction-subtext {
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-600);
+
+		&.smaller {
+			font-size: 1.2rem;
+		}
+	}
+
+	.restriction-type {
+		&[data-restriction-type="area"] {
+			color: var(--nea-clr-danger-400);
+		}
+		&[data-restriction-type="frequency"] {
+			color: var(--nea-clr-success-400);
+		}
+	}
+
+	.restriction-expired {
+		background: var(--nea-clr-dark-900);
+		border: .1rem solid var(--nea-clr-warning-400);
+		border-radius: 100vmax;
+		padding: .3rem .8rem;
+		width: fit-content;
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-100);
+	}
+	.restriction-forever {
+		background: var(--nea-clr-dark-900);
+		border: .1rem solid var(--nea-clr-primary-400);
+		border-radius: 100vmax;
+		padding: .3rem .8rem;
+		width: fit-content;
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-100);
+	}
+</style>
+
+<script>
+    import request from "@/lib/request";
+    import { fetchRestriction } from "@/lib/fetch";
+	import { formatDuration, formatTimestamp } from "@/lib/format";
+
+    const types = {
+        "area": "Area",
+        "frequency": "Frequency",
+    } as const;
+    
+	// View details
+	const restriction_details_buttons = Array.from(document.querySelectorAll("[data-restriction-action='view']") as NodeListOf<HTMLButtonElement>);
+	restriction_details_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const restriction_id = button.closest("tr")!.dataset.restrictionId!;
+			const restriction = await fetchRestriction(restriction_id);
+			if (!restriction) return;
+
+			(document.querySelector("[data-restriction-detail='name']") as HTMLParagraphElement).innerText = restriction.name;
+			(document.querySelector("[data-restriction-detail='type']") as HTMLParagraphElement).innerText = types[restriction.type] ?? restriction.type;
+			(document.querySelector("[data-restriction-detail='type']") as HTMLParagraphElement).dataset.restrictionType = restriction.type;
+			(document.querySelector("[data-restriction-detail='amount']") as HTMLParagraphElement).innerText = restriction.amount.toString();
+			(document.querySelector("[data-restriction-detail='ttl']") as HTMLParagraphElement).innerText = restriction.ttl ? `${formatDuration(restriction.ttl)} (${formatDuration((new Date(restriction.created_at).getTime() + restriction.ttl) - Date.now())} left)` : "None";
+			(document.querySelector("[data-restriction-detail='interval']") as HTMLParagraphElement).innerText = restriction.interval ? formatDuration(restriction.interval) : "None";
+			(document.querySelector("[data-restriction-detail='created_at']") as HTMLParagraphElement).innerText = formatTimestamp(restriction.created_at, "date");
+			(document.querySelector("[data-restriction-detail='target']") as HTMLParagraphElement).innerText = restriction.target ?? "";
+
+			window.current_active_restriction_id = restriction._id;
+
+			openModal("restrictionDetailsModal");
+		});
+	});
+
+	// Delete from table row
+	const restriction_delete_buttons = Array.from(document.querySelectorAll("[data-restriction-action='delete']") as NodeListOf<HTMLButtonElement>);
+	restriction_delete_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const table_row = button.closest("tr") as HTMLTableRowElement;
+			const restriction_id = table_row.dataset.restrictionId!;
+			const restriction_name = table_row.dataset.restrictionName!;
+
+			if (!confirm(`Are you sure you want to delete ${restriction_name}?`)) return;
+
+			const result = await request<void>(`restrictions/${restriction_id}`, "DELETE");
+			if (result.success) {
+				table_row.remove();
+			} else {
+				alert(`Error deleting restriction:\n ${result.error}`);
+			};
+		});
+	});
+
+	// Edit from table row
+	const restriction_edit_buttons = Array.from(document.querySelectorAll("[data-restriction-action='edit']") as NodeListOf<HTMLButtonElement>);
+	restriction_edit_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const table_row = button.closest("tr") as HTMLTableRowElement;
+			const restriction_id = table_row.dataset.restrictionId!;
+
+			const restriction = await fetchRestriction(restriction_id);
+			if (!restriction) return;
+
+			// populate edit form fields
+			(document.querySelector("#restrictionEditName") as HTMLInputElement).value = restriction.name ?? "";
+			(document.querySelector("#restrictionEditType") as HTMLSelectElement).value = restriction.type ?? "area";
+			(document.querySelector("#restrictionEditAmount") as HTMLInputElement).value = restriction.amount?.toString() ?? "";
+			(document.querySelector("#restrictionEditInterval") as HTMLInputElement).value = restriction.interval ? String(Math.round(restriction.interval / (60 * 60 * 1000))) : "";
+			(document.querySelector("#restrictionEditTTL") as HTMLInputElement).value = restriction.ttl ? String(Math.round(restriction.ttl / (60 * 60 * 1000))) : "";
+			(document.querySelector("#restrictionEditTarget") as HTMLInputElement).value = restriction.target ?? "";
+
+			window.current_active_restriction_id = restriction._id;
+
+			openModal("restrictionEditModal");
+		});
+	});
+</script>

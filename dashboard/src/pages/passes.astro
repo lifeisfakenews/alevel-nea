@@ -25,7 +25,7 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 ---
 
 <Layout title="Pass Management">
-	<div class="flex v-center" style="margin-block: 1rem">
+	<div class="flex v-center" style="margin-block: 1rem" data-tour-target="passes_filter">
 		<input type="search" placeholder="Search passes" class="input input-search" id="searchInput" />
 		<div class="push-right flex v-center gap-100">
 			<select class="input input-select" id="stateSelect">
@@ -46,7 +46,7 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			</select>
 		</div>
 	</div>
-	<table>
+	<table data-tour-target="passes_table">
 		<thead>
 			<tr>
 				<th>Pass</th>
@@ -87,42 +87,44 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 </Layout>
 
 <Modal id="passDetailsModal" title="Pass Details">
-	<div class="detail-card">
-		<h3 class="detail-heading">Overview</h3>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Location</p>
-			<p class="detail-value | push-right" data-pass-detail="location"></p>
+	<div data-tour-target="passes_details">
+		<div class="detail-card">
+			<h3 class="detail-heading">Overview</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Location</p>
+				<p class="detail-value | push-right" data-pass-detail="location"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Duration</p>
+				<p class="detail-value | push-right" data-pass-detail="duration"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Created</p>
+				<p class="detail-value | push-right pass-role" data-pass-detail="created_at"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Expires</p>
+				<p class="detail-value | push-right" data-pass-detail="expires"></p>
+			</div>
 		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Duration</p>
-			<p class="detail-value | push-right" data-pass-detail="duration"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Created</p>
-			<p class="detail-value | push-right pass-role" data-pass-detail="created_at"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Expires</p>
-			<p class="detail-value | push-right" data-pass-detail="expires"></p>
-		</div>
-	</div>
-	<div class="detail-card" id="passDetailsStudent">
-		<h3 class="detail-heading">Student Details</h3>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Name</p>
-			<p class="detail-value | push-right" data-student-detail="name"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Daily Pass Limit</p>
-			<p class="detail-value | push-right" data-student-detail="restriction_daily"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">per Class Pass Limit</p>
-			<p class="detail-value | push-right" data-student-detail="restriction_class"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Failed Pass Attempts</p>
-			<p class="detail-value | push-right" data-student-detail="failed_pass_attempts"></p>
+		<div class="detail-card" id="passDetailsStudent">
+			<h3 class="detail-heading">Student Details</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Name</p>
+				<p class="detail-value | push-right" data-student-detail="name"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Daily Pass Limit</p>
+				<p class="detail-value | push-right" data-student-detail="restriction_daily"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">per Class Pass Limit</p>
+				<p class="detail-value | push-right" data-student-detail="restriction_class"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Failed Pass Attempts</p>
+				<p class="detail-value | push-right" data-student-detail="failed_pass_attempts"></p>
+			</div>
 		</div>
 	</div>
 </Modal>
@@ -175,9 +177,9 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 </style>
 
 <script>
-	import request from "@/lib/request";
-	import { type Pass, type User, UserRole } from "@/lib/types";
+	import { fetchUser, fetchPass } from "@/lib/fetch";
 	import { formatTimestamp } from "@/lib/format";
+	import { start as startTour } from "@/lib/tutorial";
 
 	let search_query = "", state_filter = "", location_filter = "", created_filter = "";
 
@@ -212,7 +214,8 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 			const row_created = new Date(row.dataset.passCreatedAt!).getTime();
 
 			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
-			let created_filter_value = 0;
+			let created_filter_value
+			 = 0;
 			if (created_filter !== "") {
 				const [unit, amount] = created_filter.split("_");
 				const days_ms = 24 * 60 * 60 * 1000;
@@ -241,37 +244,12 @@ const location_options = Array.from(new Set(passes.map(x => x.location.toLowerCa
 		}
 	}
 
-
-	
-	const user_cache = new Map<string, User>();
-	// fetch a user from the cache or the api
-	async function fetchUser(user_id: string) {
-		if (user_cache.has(user_id)) return user_cache.get(user_id)!;
-		const result = await request<User>(`users/${user_id}`, "GET");
-		if (result.success) {
-			user_cache.set(user_id, result.data);
-			return result.data;
-		} else {
-			alert(`Error fetching user details:\n ${result.error}`);
-			return null;
-		};
-	};
-	
-	const pass_cache = new Map<string, Pass>();
-	// fetch a pass from the cache or the api
-	async function fetchPass(pass_id: string) {
-		if (pass_cache.has(pass_id)) return pass_cache.get(pass_id)!;
-		const result = await request<Pass>(`passes/${pass_id}`, "GET");
-		if (result.success) {
-			pass_cache.set(pass_id, result.data);
-			return result.data;
-		} else {
-			alert(`Error fetching pass details:\n ${result.error}`);
-			return null;
-		};
-	};
-
 	let current_active_pass_id: string | null = null;
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const seen_tours = (document.querySelector("body") as HTMLBodyElement).dataset.completedTours?.split(",") ?? [];
+		if (!seen_tours.includes("dash_passes")) startTour("dash_passes");
+	});
 	
 	const pass_details_buttons = Array.from(document.querySelectorAll("[data-pass-action='view']") as NodeListOf<HTMLButtonElement>);
 	pass_details_buttons.forEach(button => {

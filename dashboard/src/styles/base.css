@@ -53,8 +53,8 @@
     --nea-clr-body-400:  hsl(0, 0%, 15%);
     --nea-clr-body-600:  hsl(0, 0%, 12%);
 
-    --nea-clr-input-400: hsl(250, 0%, 12%);
-    --nea-clr-input-600: hsl(250, 0%, 08%);
+    --nea-clr-input-400: hsl(250, 0%, 10%);
+    --nea-clr-input-600: hsl(250, 0%, 20%);
 
     --nea-clr-button-200: hsl(250, 0%, 18%);
     --nea-clr-button-400: hsl(250, 0%, 15%);
@@ -63,8 +63,8 @@
     --nea-clr-drop-400: hsl(250, 0%, 12%);
     --nea-clr-drop-800: hsl(250, 0%, 20%);
 
-    --nea-clr-modal-400: hsl(250, 0%, 16%);
-    --nea-clr-modal-600: hsl(250, 0%, 00%);
+    --nea-clr-modal-400: hsl(250, 0%, 10%);
+    --nea-clr-modal-600: hsl(250, 0%, 20%);
 }
 
 html {
@@ -440,4 +440,9 @@ blockquote, pre, code {
     margin-top: 1rem;
     font-weight: 300;
     color: var(--nea-clr-text-600);
+}
+
+
+form .input {
+    width: 40rem;
 }

@@ -225,6 +225,7 @@ web_server.post("/users/login", async(req, res) => {
             id: randomUUID(),
             token: token,
             expiry: new Date(expiry),
+            created_at: new Date(),
         });
         await user.save();
     
@@ -483,7 +484,7 @@ web_server.delete("/users/:user_id", async(req, res) => {
             if (!ids) return res.status(400).send("No IDs provided");
             if (!Array.isArray(ids)) return res.status(400).send("Must provide an array of IDs");
 
-            const result = await db_users.deleteMany({ _id: { $in: ids } });
+            await db_users.deleteMany({ _id: { $in: ids } });
             return res.status(200).json({
                 success: true,
             });
@@ -503,7 +504,26 @@ web_server.delete("/users/:user_id", async(req, res) => {
     }
 });
 
+// add a tour to the user's completed tours list
+web_server.post("/users/@me/tours/:tour_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
 
+        const result = await db_users.findByIdAndUpdate(authCheck.user._id, {
+            $addToSet: {
+                completed_tours: req.params.tour_id,
+            }
+        }, { new: true });
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on POST \`/users/@me/tours/:tour_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 
 // Create a pass. Body requires `location` and `duration`.
@@ -596,6 +616,182 @@ web_server.get("/passes/:pass_id", async(req, res) => {
     }
 });
 
+
+// List restrictions
+// requires a teacher account or above
+web_server.get("/restrictions", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const restrictions = await db_restrictions.find();
+        return res.status(200).json({
+            success: true,
+            data: restrictions.map(x => x.toObject({ flattenObjectIds: true })),
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/restrictions\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// get a specific restriction by ID
+// requires a teacher account or above
+web_server.get("/restrictions/:restriction_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { restriction_id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(restriction_id)) return res.status(404).send("Restriction not found");
+        const restriction = await db_restrictions.findById(restriction_id);
+        if (!restriction) return res.status(404).send("Restriction not found");
+        return res.status(200).json({
+            success: true,
+            data: restriction,
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/restrictions/:restriction_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// create a new restriction
+// required IT or senior staff
+web_server.put("/restrictions", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_IT, ROLE_SENIOR]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { name, type, ttl, amount, interval, target } = req.body;
+
+        if (!name) return res.status(400).send("No name provided");
+        if (!type) return res.status(400).send("No type provided");
+        if (type !== "area" && type !== "frequency") return res.status(400).send("Invalid type");
+ 
+        if (!amount) return res.status(400).send("No amount provided");
+        if (isNaN(amount)) return res.status(400).send("Invalid amount");
+        if (amount < 0) return res.status(400).send("Amount must be positive");
+        
+        //ttl is optional. A zero value or no value will be treated as infinite
+        if (ttl) {
+            if (isNaN(ttl)) return res.status(400).send("Invalid TTL");
+            if (ttl < 0) return res.status(400).send("TTL must be positive");
+        }
+
+        //interval is only required for frequency restrictions, optional for area restrictions
+        if (type === "frequency" && !interval) return res.status(400).send("No interval provided");
+        if (interval) {
+            if (isNaN(interval)) return res.status(400).send("Invalid interval");
+            if (interval < 0) return res.status(400).send("Interval must be positive");
+        }
+        
+        if (type === "area" && !target) return res.status(400).send("No target provided");
+
+        const restriction = await new db_restrictions({
+            name: name,
+            type: type,
+            ttl: ttl ?? 0,
+            amount: amount,
+            interval: interval,
+            target: target,
+        }).save();
+
+        return res.status(201).json({
+            success: true,
+            data: restriction,
+        });
+    } catch(e: any) {
+        log(`Error on PUT \`/restrictions\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// edit a restriction
+// required IT or senior staff
+web_server.patch("/restrictions/:restriction_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_IT, ROLE_SENIOR]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { restriction_id } = req.params;
+        const restriction = await db_restrictions.findById(restriction_id);
+        if (!restriction) return res.status(404).send("Restriction not found");
+
+        const { name, type, ttl, amount, interval, target } = req.body;
+
+        if (type && type !== "area" && type !== "frequency") return res.status(400).send("Invalid type");
+        if (amount && isNaN(amount)) return res.status(400).send("Invalid amount");
+        if (interval && isNaN(interval)) return res.status(400).send("Invalid interval");
+        if (ttl && isNaN(ttl)) return res.status(400).send("Invalid TTL");
+
+        if (name) restriction.name = name;
+        if (type) restriction.type = type;
+        if ("ttl" in req.body) restriction.ttl = ttl;
+        if ("amount" in req.body) restriction.amount = amount;
+        if ("interval" in req.body) restriction.interval = interval;
+        if ("target" in req.body) restriction.target = target;
+
+        await restriction.save();
+
+        return res.status(200).json({
+            success: true,
+            data: restriction,
+        });
+    } catch(e: any) {
+        log(`Error on PATCH \`/restrictions/:restriction_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// delete a restriction
+// required IT or senior staff
+web_server.delete("/restrictions/:restriction_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_IT, ROLE_SENIOR]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        if (req.params.restriction_id === "bulk") {
+            const { ids } = req.body;
+            if (!ids) return res.status(400).send("No IDs provided");
+            if (!Array.isArray(ids)) return res.status(400).send("Must provide an array of IDs");
+
+            await db_restrictions.deleteMany({ _id: { $in: ids } });
+            return res.status(200).json({
+                success: true,
+            });
+        } else {
+            const { restriction_id } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(restriction_id)) return res.status(404).send("Restriction not found");
+            const restriction = await db_restrictions.findById(restriction_id);
+            if (!restriction) return res.status(404).send("Restriction not found");
+            
+            await db_restrictions.findByIdAndDelete(restriction_id);
+
+            return res.status(200).json({
+                success: true,
+            });
+        };
+    } catch(e: any) {
+        log(`Error on DELETE \`/restrictions/:restriction_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 
 // Expire passes

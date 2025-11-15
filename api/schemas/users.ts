@@ -21,6 +21,8 @@ export type User = {
         expiry: Date;
     }[];
 
+    completed_tours: string[];
+
     // Student fields
     restriction_daily?: number;
     restriction_class?: number;
@@ -46,6 +48,8 @@ const schema = new Schema({
     name: { type: String, required: true },
     role: { type: Number, required: true },
     sessions: { type: [sessionSchema], required: true, default: [] },
+
+    completed_tours: { type: [String], required: false, default: [] },
 
     // Student fields
     restriction_daily: { type: Number, required: false, default: 0 },

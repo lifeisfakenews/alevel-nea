@@ -1,13 +1,13 @@
 ---
 
 import request from "@/lib/request";
-import { type User, UserRole } from "@/lib/types";
-
+import { type User } from "@/lib/types";
 
 import Layout from "@/layouts/Primary.astro";
 import Button from "@/components/Button.astro";
-import Dropdown from "@/components/Dropdown.astro";
 import Modal from "@/components/Modal.astro";
+import UserRow from "@/components/UserRow.astro";
+import BulkSelect from "@/components/BulkSelect.astro";
 
 const result = await request<User[]>("users", "GET", undefined, Astro);
 let users:User[] = [];
@@ -18,26 +18,19 @@ if (result.success) users = result.data;
 users.sort((a,b) => {
 	if (a.role !== b.role) return a.role - b.role;
 	return a.name.localeCompare(b.name);
-})
-
-const roles = {
-	[UserRole.STUDENT]: "Student",
-	[UserRole.TEACHER]: "Teacher",
-	[UserRole.IT]: "IT Staff",
-	[UserRole.SENIOR]: "Senior Staff",
-} as const;
+});
 
 ---
 
 <Layout title="User Management">
 	<div class="flex v-center">
-		<div class="push-right">
+		<div class="push-right" data-tour-target="users_create">
 			<Button id="bulkCreateUserButton" text="Bulk Create Users" theme="dark" modifiers={["no-mgi"]} />
 			
 			<Button id="addUserButton" text="Add User" theme="dark" modifiers={["no-mgi"]} />
 		</div>
 	</div>
-	<div class="flex v-center" style="margin-block: 1rem">
+	<div class="flex v-center" style="margin-block: 1rem" data-tour-target="users_filter">
 		<input type="search" placeholder="Search users" class="input input-search" id="searchInput" />
 		<div class="push-right flex v-center gap-100">
 			<select class="input input-select" id="roleSelect">
@@ -62,7 +55,7 @@ const roles = {
 			</select>
 		</div>
 	</div>
-	<table>
+	<table data-tour-target="users_table">
 		<thead>
 			<tr>
 				<th data-table-column="select">
@@ -78,98 +71,64 @@ const roles = {
 			</tr>
 		</thead>
 		<tbody data-table-empty="No users found">
-			{users.map(user => {
-				const most_recent_session = user.sessions ? user.sessions[user.sessions.length - 1] : null;
-				const restriction_filter_value = user.restriction_daily && user.restriction_class ? "both" : user.restriction_daily ? "daily" : user.restriction_class ? "class" : "no";
-				return <tr data-user-id={user._id} data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value}>
-					<td data-table-column="select">
-						<label class="bulk-select">
-							<input type="checkbox" />
-						</label>
-					</td>
-					<td>
-						<p class="user-name">{user.name}</p>
-						<p class="user-subtext">{user.username}</p>
-					</td>
-					<td>
-						<p class="user-role" data-user-role={user.role}>{roles[user.role]}</p>
-					</td>
-					<td>
-						<p>{most_recent_session?.created_at ? new Date(most_recent_session.created_at).toLocaleDateString() : "Never"}</p>
-						<p class="user-subtext smaller">Created {new Date(user.created_at).toLocaleDateString()}</p>
-					</td>
-					<td>
-						{
-							user.role === UserRole.STUDENT ? <>
-								{user.restriction_daily ? <p class="user-subtext">{user.restriction_daily} per day</p> : ""}
-								{user.restriction_class ? <p class="user-subtext">{user.restriction_class} per class</p> : ""}
-								{!user.restriction_class && !user.restriction_daily ? <p class="user-subtext">No restrictions</p> : ""}
-							</> : user.on_duty ? <p class="user-onduty">On Duty</p> : ""
-						}
-					</td>
-					<td>
-						<Dropdown id={"userActions__" + user._id} three_dots>
-							<button data-user-action="view">View Details</button>
-							<button data-user-action="edit">Edit</button>
-							<hr />
-							<button data-user-action="delete">Delete</button>
-						</Dropdown>
-					</td>
-				</tr>
-			})}
+			{users.map(user => <UserRow user={user} />)}
 		</tbody>
 	</table>
 </Layout>
 
+<BulkSelect type="users" />
+
 <Modal id="userDetailsModal" title="User Details">
-	<div class="detail-card">
-		<h3 class="detail-heading">Overview</h3>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Username</p>
-			<p class="detail-value | push-right" data-user-detail="username"></p>
+	<div data-tour-target="users_details">
+		<div class="detail-card">
+			<h3 class="detail-heading">Overview</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Username</p>
+				<p class="detail-value | push-right" data-user-detail="username"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Name</p>
+				<p class="detail-value | push-right" data-user-detail="name"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Role</p>
+				<p class="detail-value | push-right user-role" data-user-detail="role"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Last Login</p>
+				<p class="detail-value | push-right" data-user-detail="last_login"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Account Created</p>
+				<p class="detail-value | push-right" data-user-detail="created_at"></p>
+			</div>
 		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Name</p>
-			<p class="detail-value | push-right" data-user-detail="name"></p>
+		<div class="detail-card" id="userDetailsStudent">
+			<h3 class="detail-heading">Student Details</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Daily Pass Limit</p>
+				<p class="detail-value | push-right" data-user-detail="restriction_daily"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">per Class Pass Limit</p>
+				<p class="detail-value | push-right" data-user-detail="restriction_class"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Failed Pass Attempts</p>
+				<p class="detail-value | push-right" data-user-detail="failed_pass_attempts"></p>
+			</div>
 		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Role</p>
-			<p class="detail-value | push-right user-role" data-user-detail="role"></p>
+		<div class="detail-card" id="userDetailsTeacher">
+			<h3 class="detail-heading">Teacher Details</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Duty Satus</p>
+				<p class="detail-value | push-right" data-user-detail="on_duty"></p>
+			</div>
 		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Last Login</p>
-			<p class="detail-value | push-right" data-user-detail="last_login"></p>
+		<div class="flex v-center gap-200">
+			<Button id="userDeleteButton" text="Delete User" theme="dark" modifiers={["no-mgi"]} />
+			<Button id="userEditButton" text="Edit User" theme="dark" modifiers={["no-mgi"]} />
 		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Account Created</p>
-			<p class="detail-value | push-right" data-user-detail="created_at"></p>
-		</div>
-	</div>
-	<div class="detail-card" id="userDetailsStudent">
-		<h3 class="detail-heading">Student Details</h3>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Daily Pass Limit</p>
-			<p class="detail-value | push-right" data-user-detail="restriction_daily"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">per Class Pass Limit</p>
-			<p class="detail-value | push-right" data-user-detail="restriction_class"></p>
-		</div>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Failed Pass Attempts</p>
-			<p class="detail-value | push-right" data-user-detail="failed_pass_attempts"></p>
-		</div>
-	</div>
-	<div class="detail-card" id="userDetailsTeacher">
-		<h3 class="detail-heading">Teacher Details</h3>
-		<div class="detail-row | flex v-center gap-100">
-			<p class="detail-label">Duty Satus</p>
-			<p class="detail-value | push-right" data-user-detail="on_duty"></p>
-		</div>
-	</div>
-	<div class="flex v-center gap-200">
-		<Button id="userDeleteButton" text="Delete User" theme="dark" modifiers={["no-mgi"]} />
-		<Button id="userEditButton" text="Edit User" theme="dark" modifiers={["no-mgi"]} />
 	</div>
 </Modal>
 
@@ -201,7 +160,7 @@ const roles = {
 </Modal>
 
 <Modal id="userEditModal" title="Edit User">
-	<form id="userEditForm">
+	<form id="userEditForm" data-tour-target="users_edit">
 		<label for="userEditUsername" class="label">Username</label>
 		<input type="text" id="userEditUsername" class="input" placeholder="Username" required data-username-input />
 
@@ -274,152 +233,7 @@ const roles = {
 	</form>
 </Modal>
 
-<div class="bulk-select-wrapper">
-	<div class="bulk-select-row | flex v-center gap-100">
-		<p>
-			<span class="bulk-select-count"></span>
-			<span>items selected</span>
-		</p>
-		<button class="bulk-action | nostyles" data-bulk-action="clear">Clear</button>
-		<div class="push-right | flex v-center gap-100">
-			<button class="bulk-action | nostyles" data-bulk-action-style="delete" data-bulk-action="delete">Delete</button>
-		</div>
-	</div>
-</div>
-
 <style>
-	.user-name {
-		font-weight: 800;
-		font-size: 1.8rem;
-		color: var(--nea-clr-text-100);
-	}
-	.user-subtext {
-		font-size: 1.4rem;
-		color: var(--nea-clr-text-600);
-
-		&.smaller {
-			font-size: 1.2rem;
-		}
-	}
-
-	.user-role {
-
-		&[data-user-role="0"] {
-			color: var(--nea-clr-danger-400);
-		}
-		&[data-user-role="1"] {
-			color: var(--nea-clr-warning-400);
-		}
-		&[data-user-role="2"] {
-			color: var(--nea-clr-success-400);
-		}
-		&[data-user-role="3"] {
-			color: var(--nea-clr-primary-400);
-		}
-	}
-
-	.user-onduty {
-		background: var(--nea-clr-dark-900);
-		border: .1rem solid var(--nea-clr-primary-400);
-		border-radius: 100vmax;
-		padding: .3rem .8rem;
-		width: fit-content;
-		font-size: 1.4rem;
-		color: var(--nea-clr-text-100);
-	}
-
-	:is(th:first-child, th:last-child) {
-		width: 1.4rem;
-	}
-
-
-	.bulk-select {
-        border: .1rem solid #5f5f5f;
-        border-radius: .4rem;
-        position: relative;
-        display: block;
-        width: 1.6rem;
-        aspect-ratio: 1 / 1;
-        cursor: pointer;
-		
-		&:has(input:is(:checked, [data-item-selected="mixed"])) {
-			background: var(--nea-clr-primary-400);
-			border-color: var(--nea-clr-primary-400);
-		}
-		&:has(input:not([data-item-selected="mixed"]):checked)::after {
-			content: "";
-			border-right: .2rem solid var(--nea-clr-text-100);
-			border-bottom: .2rem solid var(--nea-clr-text-100);
-			margin: auto;
-			position: absolute;
-			inset: 0;
-			display: block;
-			width: .5rem;
-			aspect-ratio: 1 / 2;
-			rotate: 45deg;
-			translate: -.1rem -.1rem;
-		}
-		&:has(input[data-item-selected="mixed"])::after {
-			content: "";
-			background: var(--nea-clr-text-100);
-			border-radius: .2rem;
-			margin: auto;
-			position: absolute;
-			inset: 0;
-			display: block;
-			width: calc(100% - .6rem);
-			aspect-ratio: 2 / 1;
-		}
-		input {
-			appearance: none;
-			margin: 0;
-			position: absolute;
-		}
-    } 
-
-
-	.bulk-select-wrapper {
-        position: fixed;
-        inset: auto 0 -10rem 0;
-        display: block;
-        transition: .3s;
-        --_inline-inset: 20rem;
-		
-		.bulk-select-row {
-			background: var(--nea-clr-dark-900);
-			border: .1rem solid var(--nea-clr-dark-800);
-			box-shadow: 1rem 1rem .6rem rgba(0, 0, 0, .3),-.1rem -.1rem .5rem rgba(0, 0, 0, .3);
-			border-radius: .8rem;
-			margin-inline: var(--_inline-inset);
-			padding: 1rem;
-		}
-	
-		.bulk-select-wrapper p {
-			color: var(--nea-clr-text-600);
-		}
-		.bulk-select-count {
-			font-weight: 800;
-			color: var(--nea-clr-text-100);
-		}
-	
-		.bulk-action {
-			color: var(--nea-clr-text-100);
-			cursor: pointer;
-	
-			&:is(:hover, :focus-visible) {
-				text-decoration: underline;
-			}
-	
-			&[data-bulk-action-style="clear"] {
-				color: hsl(31, 87%, 50%);
-			}
-	
-			&[data-bulk-action-style="danger"] {
-				color: var(--nea-clr-danger-400);
-			}
-		}
-    }
-
 	.detail-card {
 		border: .1rem solid var(--nea-clr-dark-400);
 		border-radius: .5rem;
@@ -441,22 +255,15 @@ const roles = {
 <script>
 	import request from "@/lib/request";
 	import { type User, UserRole } from "@/lib/types";
+	import { fetchUser } from "@/lib/fetch";
+	import { start as startTour } from "@/lib/tutorial";
 
 	let search_query = "", role_filter = "", detail_filter = "";
 	let role_filter_set_automatically = false;
 
-	const roles = {
-		[UserRole.STUDENT]: "Student",
-		[UserRole.TEACHER]: "Teacher",
-		[UserRole.IT]: "IT Staff",
-		[UserRole.SENIOR]: "Senior Staff",
-	} as const;
-
 	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
 	const role_select = document.querySelector("#roleSelect") as HTMLSelectElement;
 	const detail_select = document.querySelector("#detailSelect") as HTMLSelectElement;
-
-	const inputs = document.querySelectorAll(".input") as NodeListOf<HTMLInputElement | HTMLSelectElement>;
 
 	search_input.addEventListener("input", () => {
 		search_query = search_input.value;
@@ -481,6 +288,12 @@ const roles = {
 		filterTable();
 	});
 
+	document.addEventListener("DOMContentLoaded", () => {
+		const seen_tours = (document.querySelector("body") as HTMLBodyElement).dataset.completedTours?.split(",") ?? [];
+		if (!seen_tours.includes("dash_users")) startTour("dash_users");
+	});
+		
+
 	function filterTable() {
 		const table = document.querySelector("table") as HTMLTableElement;
 		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
@@ -503,171 +316,6 @@ const roles = {
 			}
 		}
 	}
-
-
-	const bulk_select_checkboxes = Array.from(document.querySelectorAll("[data-table-column='select'] input[type='checkbox']") as NodeListOf<HTMLInputElement>);
-	const bulk_select_wrapper = document.querySelector(".bulk-select-wrapper") as HTMLDivElement;
-	const bulk_select_count = document.querySelector(".bulk-select-count") as HTMLParagraphElement;
-	bulk_select_checkboxes.forEach(checkbox => {
-		checkbox.addEventListener("change", () => {
-			//ie the one in the heading row, update all checkboxed to be checked or not depending on the stat of the heading checkbox
-			if (checkbox.dataset.tableControl === "true") {
-				bulk_select_checkboxes.forEach(x => x.checked = checkbox.checked);
-				bulk_select_wrapper.style.bottom = checkbox.checked ? "10rem" : "";
-			} else {
-				const control_checkbox = bulk_select_checkboxes.find(x => x.dataset.tableControl === "true")!;
-				if (checkbox.checked) {
-					control_checkbox.checked = true;
-					bulk_select_wrapper.style.bottom = "10rem";
-				} else if (!bulk_select_checkboxes.some(x => x.checked && x.dataset.tableControl !== "true")) {
-					//if no other checkboxes are checked, uncheck the control checkbox
-					control_checkbox.checked = false;
-					bulk_select_wrapper.style.bottom = "";// empty value defaults to whatever it has in styles
-				};
-			};
-
-			const number_of_checked_boxes = bulk_select_checkboxes.filter(x => x.checked && x.dataset.tableControl !== "true").length;
-			bulk_select_count.innerText = number_of_checked_boxes.toString();
-		});
-	});
-
-	const bulk_select_clear = document.querySelector("[data-bulk-action='clear']") as HTMLButtonElement;
-	bulk_select_clear.addEventListener("click", () => {
-		bulk_select_checkboxes.forEach(x => x.checked = false);
-		bulk_select_wrapper.style.bottom = "";
-		bulk_select_count.innerText = "0";
-	});
-
-	const bulk_select_delete = document.querySelector("[data-bulk-action='delete']") as HTMLButtonElement;
-	bulk_select_delete.addEventListener("click", async() => {
-		const checked_boxes = bulk_select_checkboxes.filter(x => x.checked && x.dataset.tableControl !== "true");
-		const ids: string[] = [];
-		checked_boxes.forEach(checkbox => {
-			const table_row = checkbox.closest("tr") as HTMLTableRowElement;
-			ids.push(table_row.dataset.userId!);
-		});
-
-		if (!confirm(`Are you sure you want to delete ${ids.length} users?`)) return;
-
-		const result = await request<void>("users/bulk", "DELETE", {
-			ids: ids,
-		});
-		if (result.success) {
-			bulk_select_checkboxes.forEach(x => x.checked = false);
-			bulk_select_wrapper.style.bottom = "";
-			bulk_select_count.innerText = "0";
-			checked_boxes.forEach(checkbox => {
-				const table_row = checkbox.closest("tr") as HTMLTableRowElement;
-				table_row.remove();
-			});
-		} else {
-			alert(`Error delete users:\n ${result.error}`);
-		};
-	});
-
-	const user_cache = new Map<string, User>();
-	// fetch a user from the cache or the api
-	async function fetchUser(user_id: string) {
-		if (user_cache.has(user_id)) return user_cache.get(user_id)!;
-		const result = await request<User>(`users/${user_id}`, "GET");
-		if (result.success) {
-			user_cache.set(user_id, result.data);
-			return result.data;
-		} else {
-			alert(`Error fetching user details:\n ${result.error}`);
-			return null;
-		};
-	};
-
-	let current_active_user_id: string | null = null;
-
-	const user_details_buttons = Array.from(document.querySelectorAll("[data-user-action='view']") as NodeListOf<HTMLButtonElement>);
-	user_details_buttons.forEach(button => {
-		button.addEventListener("click", async() => {
-			const user_id = button.closest("tr")!.dataset.userId!;
-			const user = await fetchUser(user_id);
-			if (!user) return;
-
-			(document.querySelector("[data-user-detail='username']") as HTMLParagraphElement).innerText = user.username;
-			(document.querySelector("[data-user-detail='name']") as HTMLParagraphElement).innerText = user.name;
-			(document.querySelector("[data-user-detail='role']") as HTMLParagraphElement).innerText = roles[user.role];
-			(document.querySelector("[data-user-detail='role'") as HTMLParagraphElement).dataset.userRole = `${user.role}`;
-			(document.querySelector("[data-user-detail='last_login']") as HTMLParagraphElement).innerText = user.sessions?.length ? new Date(user.sessions[user.sessions.length - 1].created_at).toLocaleDateString() : "Never";
-			(document.querySelector("[data-user-detail='created_at']") as HTMLParagraphElement).innerText = new Date(user.created_at).toLocaleDateString();
-
-			// display or hide the student and teacher details cards based on the role
-			const student_details = document.querySelector("#userDetailsStudent") as HTMLDivElement;
-			const teacher_details = document.querySelector("#userDetailsTeacher") as HTMLDivElement;
-			if (user.role === UserRole.STUDENT) {
-				student_details.style.display = "";
-				teacher_details.style.display = "none";
-
-				(document.querySelector("[data-user-detail='restriction_daily']") as HTMLParagraphElement).innerText = `${user.restriction_daily ?? "Unset"}`;
-				(document.querySelector("[data-user-detail='restriction_class']") as HTMLParagraphElement).innerText = `${user.restriction_class ?? "Unset"}`;
-				(document.querySelector("[data-user-detail='failed_pass_attempts']") as HTMLParagraphElement).innerText = `${user.failed_pass_attempts ?? 0}`;
-			} else {
-				student_details.style.display = "none";
-				teacher_details.style.display = "";
-
-				(document.querySelector("[data-user-detail='on_duty']") as HTMLParagraphElement).innerText = `${user.on_duty ? "On Duty" : "Off Duty"}`;
-			};
-
-			current_active_user_id = user._id;
-
-			openModal("userDetailsModal");
-		});
-	});
-
-	const user_delete_buttons = Array.from(document.querySelectorAll("[data-user-action='delete']") as NodeListOf<HTMLButtonElement>);
-	user_delete_buttons.forEach(button => {
-		button.addEventListener("click", async() => {
-			const table_row = button.closest("tr") as HTMLTableRowElement;
-			const user_id = table_row.dataset.userId!;
-			const user_name = table_row.dataset.userName!;
-
-			if (!confirm(`Are you sure you want to delete ${user_name}?`)) return;
-
-			const result = await request<void>(`users/${user_id}`, "DELETE");
-			if (result.success) {
-				table_row.remove();
-			} else {
-				alert(`Error deleting user:\n ${result.error}`);
-			};
-		});
-	});
-
-	const user_edit_buttons = Array.from(document.querySelectorAll("[data-user-action='edit']") as NodeListOf<HTMLButtonElement>);
-	user_edit_buttons.forEach(button => {
-		button.addEventListener("click", async() => {
-			const table_row = button.closest("tr") as HTMLTableRowElement;
-			const user_id = table_row.dataset.userId!;
-
-			const user = await fetchUser(user_id);
-			if (!user) return;
-
-			(document.querySelector("#userEditUsername") as HTMLInputElement).value = user.username;
-			
-			(document.querySelector("#userEditName") as HTMLInputElement).value = user.name;
-			(document.querySelector("#userEditRole") as HTMLSelectElement).value = `${user.role}`;
-			(document.querySelector("#userEditOnDuty") as HTMLSelectElement).value = user.on_duty ? "on_duty" : "off_duty";
-			(document.querySelector("#userEditRestrictionDaily") as HTMLInputElement).value = user.restriction_daily?.toString() ?? "";
-			(document.querySelector("#userEditRestrictionClass") as HTMLInputElement).value = user.restriction_class?.toString() ?? "";
-			
-			const user_edit_student_details = document.querySelector("#userEditStudentDetails") as HTMLDivElement;
-			const user_edit_teacher_details = document.querySelector("#userEditTeacherDetails") as HTMLDivElement;
-			if (user.role === UserRole.STUDENT) {
-				user_edit_student_details.style.display = "";
-				user_edit_teacher_details.style.display = "none";
-			} else {
-				user_edit_student_details.style.display = "none";
-				user_edit_teacher_details.style.display = "";
-			};
-
-			current_active_user_id = user._id;
-
-			openModal("userEditModal");
-		});
-	});
 
 	//perform required checks for passwords when account is created
 	function validatePassword(password: string) {
@@ -747,7 +395,7 @@ const roles = {
 			};
 
 			if (valid) {
-				const result = await request<User>(`users/${current_active_user_id}`, "PATCH", {
+				const result = await request<User>(`users/${window.current_active_user_id}`, "PATCH", {
 					username: username_input.value,
 					password: password_input.value,
 					name: name_input.value,
@@ -932,7 +580,7 @@ const roles = {
 
 	const user_delete_button = document.querySelector("#userDeleteButton") as HTMLButtonElement;
 	user_delete_button.addEventListener("click", async() => {
-		const user_id = current_active_user_id!;
+		const user_id = window.current_active_user_id!;
 		if (!confirm(`Are you sure you want to delete ${user_id}?`)) return;
 
 		const result = await request<void>(`users/${user_id}`, "DELETE");
@@ -945,7 +593,7 @@ const roles = {
 
 	const user_edit_button = document.querySelector("#userEditButton") as HTMLButtonElement;
 	user_edit_button.addEventListener("click", async() => {
-		const user_id = current_active_user_id!;
+		const user_id = window.current_active_user_id!;
 		const user = await fetchUser(user_id);
 		if (!user) return;
 
@@ -969,8 +617,6 @@ const roles = {
 			user_edit_student_details.style.display = "none";
 			user_edit_teacher_details.style.display = "";
 		};
-
-		current_active_user_id = user._id;
 
 		openModal("userEditModal");
 	});

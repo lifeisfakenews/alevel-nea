@@ -28,7 +28,7 @@ const { id, title } = Astro.props;
     function openModal(id) {
         try {
             const modal = document.querySelector(`#${id}`);
-            modal.showModal();
+            modal.show();
         } catch(e) {
             alert("Failed to open modal with id: " + id);
         }
@@ -44,11 +44,6 @@ const { id, title } = Astro.props;
 </script>
 
 <script>
-    declare global {
-        function openModal(id: string): void;
-        function closeModal(id: string): void;
-    }
-
     document.addEventListener("click", e => {
         const target = e.target as HTMLDialogElement;
         if (!target.dataset.modalDismissable || target.dataset.modalDismissable === "false") return;
@@ -58,8 +53,8 @@ const { id, title } = Astro.props;
 
 <style>
     dialog {
-        background: #1d1d1d;
-        border: 1px solid #2c2c2c;
+        background: var(--nea-clr-modal-400);
+        border: 1px solid var(--nea-clr-modal-600);
         border-radius: .8rem;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         padding: 3rem;
@@ -70,6 +65,9 @@ const { id, title } = Astro.props;
         font: inherit;
         color: inherit;
         overflow: initial;
+
+        --nea-clr-input-400: hsl(250, 0%, 15%);
+        --nea-clr-input-600: hsl(250, 0%, 25%);
     }
     dialog::backdrop {
         background-color: #0003;
@@ -86,12 +84,5 @@ const { id, title } = Astro.props;
         aspect-ratio: 1 / 1;
         color: var(--vm-clr-text-200);
         transition: .3s;
-    }
-
-    dialog thead {
-        background: #2d2d2d;
-    }
-    dialog td {
-        border-bottom: .1rem solid #2d2d2d;
     }
 </style>

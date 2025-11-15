@@ -22,6 +22,8 @@ export type User = {
         expiry: string;
     }[];
 
+    completed_tours: string[];
+
     // Student fields
     restriction_daily?: number;
     restriction_class?: number;
