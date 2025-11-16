@@ -24,17 +24,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="create_pass"
+        name="scan-pass"
         options={{
-          title: 'Create Pass',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="add" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="my_passes"
-        options={{
-          title: 'My Passes',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="format-list-bulleted" color={color} />,
+          title: 'Verify Pass',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="scanner" color={color} />,
         }}
       />
     </Tabs>

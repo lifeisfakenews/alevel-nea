@@ -1,4 +1,4 @@
-import { type User, type Pass, type Restriction } from "./types";
+import { type User, type Pass, type Restriction, type Grouping } from "./types";
 import request from "./request";
 
 const user_cache = new Map<string, User>();
@@ -38,6 +38,19 @@ export async function fetchRestriction(restriction_id: string) {
         return result.data;
     } else {
         alert(`Error fetching restriction details:\n ${result.error}`);
+        return null;
+    };
+};
+
+const grouping_cache = new Map<string, Grouping>();
+export async function fetchGrouping(grouping_id: string) {
+    if (grouping_cache.has(grouping_id)) return grouping_cache.get(grouping_id)!;
+    const result = await request<Grouping>(`groupings/${grouping_id}`, "GET");
+    if (result.success) {
+        grouping_cache.set(grouping_id, result.data);
+        return result.data;
+    } else {
+        alert(`Error fetching grouping details:\n ${result.error}`);
         return null;
     };
 };

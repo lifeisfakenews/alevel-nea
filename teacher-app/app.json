@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "student-app",
-    "slug": "alevel-nea",
+    "name": "teacher-app",
+    "slug": "nea-teacher-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.alevelnea.student"
+      "bundleIdentifier": "com.alevelnea.teacher"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,10 +22,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.NFC",
         "android.permission.NFC"
       ],
-      "package": "com.alevelnea.student"
+      "package": "com.alevelnea.teacher"
     },
     "web": {
       "output": "static",
@@ -45,8 +44,7 @@
           }
         }
       ],
-      "expo-secure-store",
-      "react-native-nfc-manager"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -55,7 +53,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "671c30ec-d57f-4d85-b181-a1004fd82ab8"
+        "projectId": "46ea2579-dbff-4910-a203-9a97f3fd2abc"
       }
     },
     "owner": "lifeisfakenews"

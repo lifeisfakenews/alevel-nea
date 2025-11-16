@@ -61,7 +61,9 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 			{passes.map(pass => {
 				const pass_creator = users.find(u => u._id === pass.user_id)!;
 				const pass_expiry = new Date(pass.created_at).getTime() + pass.duration;
-				const state = pass.completed_at ? new Date(pass.completed_at).getTime() > pass_expiry ? "late" : "on_time" : "active";
+				const state = !pass.completed_at && Date.now() < pass_expiry ? "active"
+					: pass.completed_at && new Date(pass.completed_at).getTime() < pass_expiry ? "on_time"
+					: pass.completed_at && new Date(pass.completed_at).getTime() > pass_expiry ? "late" : "missing";
 				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-state={state} data-pass-destination={pass.destination} data-pass-created-at={pass.created_at}>
 					<td>
 						<p class="pass-name">{DESTINATIONS.find(x => x.id === pass.destination)?.name ?? pass.destination}</p>
@@ -72,10 +74,21 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 						<p class="pass-subtext smaller">on {formatTimestamp(pass.created_at, "date_time")}</p>
 					</td>
 					<td>
-						{pass_expiry > Date.now() && !pass.completed_at ? <>
+						{state === "active" ? <>
 							<p>{formatDuration(pass.duration)}</p>
-							<p class="pass-subtext smaller">Expires at {formatTimestamp(pass_expiry, "time")}</p>
-						</> : state == "late" ? <p class="pass-expired pass-late">Late</p> : <p class="pass-expired">On Time</p>}
+							<p class="pass-subtext">Expires at {formatTimestamp(pass_expiry, "time")}</p>
+						</> :
+						state === "late" ? <>
+							<p class="pass-state" data-pass-state="late">Late</p>
+							<p class="pass-subtext">Returned {formatDuration(pass_expiry - new Date(pass.completed_at!).getTime())} late (at {formatTimestamp(pass.completed_at!, "time")})</p>
+						</> :
+						state === "on_time" ? <>
+							<p class="pass-state" data-pass-state="on_time">On Time</p>
+							<p class="pass-subtext">Returned {formatDuration(new Date(pass.completed_at!).getTime() - pass_expiry)} early (at {formatTimestamp(pass.completed_at!, "time")})</p>
+						</> : <>
+							<p class="pass-state" data-pass-state="missing">Missing</p>
+							<p class="pass-subtext">Expired {formatDuration(pass_expiry - new Date(pass.created_at).getTime())} ago</p>
+						</>}
 					</td>
 					<td>
 						<Dropdown id={"passActions__" + pass._id} three_dots>
@@ -158,7 +171,7 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 		}
 	}
 
-	.pass-expired {
+	/* .pass-expired {
 		background: var(--nea-clr-dark-900);
 		border: .1rem solid var(--nea-clr-primary-400);
 		border-radius: 100vmax;
@@ -169,6 +182,28 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 		
 		&.pass-late {
 			border-color: var(--nea-clr-warning-400);
+		}
+
+		&.pass-missing {
+			border-color: var(--nea-clr-danger-400);
+		}
+	} */
+
+	.pass-state {
+		font-weight: 800;
+		font-size: 1.4rem;
+
+		&[data-pass-state="active"] {
+			color: var(--nea-clr-success-400);
+		}
+		&[data-pass-state="on_time"] {
+			color: var(--nea-clr-primary-400);
+		}
+		&[data-pass-state="late"] {
+			color: var(--nea-clr-warning-400);
+		}
+		&[data-pass-state="missing"] {
+			color: var(--nea-clr-danger-400);
 		}
 	}
 
@@ -285,7 +320,7 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 			(document.querySelector("[data-pass-detail='created_at']") as HTMLParagraphElement).innerText = formatTimestamp(pass.created_at, "date_time");
 			// if the pass hsan't expired yet, show how long is left
 			(document.querySelector("[data-pass-detail='expires']") as HTMLParagraphElement).innerText = formatTimestamp(expiry, Date.now() < expiry ? "relative" : "time");
-			(document.querySelector("[data-pass-detail='state']") as HTMLParagraphElement).innerText = pass.completed_at ? new Date(pass.completed_at).getTime() > expiry ? "Late" : "On Time" : "Active";
+			(document.querySelector("[data-pass-detail='state']") as HTMLParagraphElement).innerText = !pass.completed_at && Date.now() < expiry ? "Active" : !pass.completed_at || new Date(pass.completed_at).getTime() > expiry ? "Late" : "On Time";
 
 			const user = await fetchUser(pass.user_id);
 			if (user) {

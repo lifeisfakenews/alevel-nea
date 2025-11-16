@@ -180,10 +180,54 @@ const steps = {
                 description: "You have completed the tutorial! You can view this tutorial again at any time by click your name in the top right and then Tutorial",
             },
         }
-    ], 
+    ],
+    "dash_groupings": [
+        {
+            element: "[data-tour-target='groupings_filter']",
+            popover: {
+                title: "Filtering Groupings",
+                description: "You can filter by state, location or created date",
+            },
+        },
+        {
+            element: "[data-tour-target='groupings_table']",
+            popover: {
+                title: "Grouping Table",
+                description: "Here you can see a list of all groupings in the system. You can click on the 3 dots to the right of a grouping to view or edit their details or delete them",
+                onNextClick: (_, __, { driver: tour}) => {
+                    // select the first grouping in the table and click the view details button
+                    const first_row = document.querySelector("table tbody tr") as HTMLTableRowElement;
+                    if (first_row) {
+                        const view_details_button = first_row.querySelector("[data-grouping-action='view']") as HTMLButtonElement;
+                        if (view_details_button) view_details_button.click();
+                    }
+
+                    tour.moveNext();
+                }
+            },
+        },
+        {
+            element: "[data-tour-target='groupings_details']",
+            popover: {
+                title: "Grouping Details",
+                description: "Here you can see a detailed view of a grouping's details. You can view this modal by clicking View Details in the three dots menu on the right of a grouping in the table",
+                onNextClick: (_, __, { driver: tour}) => {
+                    closeModal("groupingDetailsModal");
+
+                    tour.moveNext();
+                },
+            },
+        },
+        {
+            popover: {
+                title: "Thats everything!",
+                description: "You have completed the tutorial! You can view this tutorial again at any time by click your name in the top right and then Tutorial",
+            },
+        }
+    ],
 } as Record<string, DriveStep[]>;
 
-export function start(type: "dash_users" | "dash_passes" | "dash_restrictions") {
+export function start(type: keyof typeof steps) {
     const tour = driver({
         showProgress: true,
         steps: steps[type]!,

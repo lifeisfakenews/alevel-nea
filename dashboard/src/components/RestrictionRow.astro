@@ -19,7 +19,7 @@ const restriction_expiry = new Date(restriction.created_at).getTime() + (restric
 const ms_remaining = restriction_expiry - Date.now();
 
 --- 
-<tr data-restriction-id={restriction._id} data-restriction-name={restriction.name} data-restriction-type={restriction.type} data-restriction-expiry={restriction_expiry} data-restriction-target={restriction.target}>
+<tr data-restriction-id={restriction._id} data-bulk-item-id={restriction._id} data-restriction-name={restriction.name} data-restriction-type={restriction.type} data-restriction-expiry={restriction_expiry} data-restriction-target={restriction.target}>
     <td data-table-column="select">
         <label class="bulk-select">
             <input type="checkbox" />

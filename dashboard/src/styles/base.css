@@ -435,6 +435,10 @@ blockquote, pre, code {
     &:empty {
         display: none;
     }
+
+    &:has(br) {
+        margin-top: 0;
+    }
 }
 .input-hint {
     margin-top: 1rem;

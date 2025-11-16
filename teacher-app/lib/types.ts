@@ -25,10 +25,7 @@ export type User = {
         expiry: string;
     }[];
 
-    completed_tours: string[];
-
     // Student fields
-    year_group?: number;
     restriction_daily?: number;
     restriction_class?: number;
     failed_pass_attempts?: number;
@@ -63,18 +60,4 @@ export type Restriction = {
     amount: number;
     interval?: number;
     target?: string;
-}
-
-export type Grouping = {
-    _id: string;
-    created_at: string;
-    updated_at: string;
-    
-    resolved_at?: string;
-    resolved_by?: string;
-
-    students: string[];
-    location: string;
-    // between 0 and 100
-    confidence_score: number;
 }

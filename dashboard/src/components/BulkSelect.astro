@@ -157,7 +157,7 @@ const { type } = Astro.props;
 		const ids: string[] = [];
 		checked_boxes.forEach(checkbox => {
 			const table_row = checkbox.closest("tr") as HTMLTableRowElement;
-			ids.push(table_row.dataset.restrictionId!);
+			ids.push(table_row.dataset.bulkItemId!);
 		});
 
 		if (!confirm(`Are you sure you want to delete ${ids.length} ${bulk_select_type}?`)) return;

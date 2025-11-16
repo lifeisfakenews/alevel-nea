@@ -5,8 +5,8 @@ import mongoose from "mongoose";
 import { randomUUID } from "crypto";
 
 // Import db schemas and types
-import { db_users, db_passes, db_restrictions } from "@/schemas";
-import type { User, Pass, Restriction } from "@/schemas";
+import { db_users, db_passes, db_restrictions, db_groupings } from "@/schemas";
+import type { User, Pass, Restriction, Grouping } from "@/schemas";
 
 import CLASSROOMS from "@/locations/classrooms";
 import DESTINATIONS from "@/locations/destinations";
@@ -131,9 +131,31 @@ async function checkRestrictions(user: User, location: string) {
 };
 
 // Check for student grouping and send alerts
-// TODO: implement this function
+// Boolean indicating if the pass will create a grouping (true == group)
 async function checkStudentGrouping(user: User, location: string) {
-    return true;
+    const active_passes = await db_passes.find({ completed_at: { $exists: false }, destination: location });
+
+    if (active_passes.length >= MAX_STUDENTS_FOR_GROUP) {
+        // check for a grouping event in this destination that hasnt been resoled, update it if so otherwise make a new one
+        const existing_grouping = await db_groupings.findOne({ loation: location, resolved_at: { $exists: false } });
+        if (existing_grouping) {
+            // update the existing grouping
+            await db_groupings.findByIdAndUpdate(existing_grouping._id, {
+                $addToSet: {
+                    students: user._id,
+                },
+            });
+        } else {
+            await new db_groupings({
+                students: [user._id, ...active_passes.map(x => x.user_id)],
+                location: location,
+                confidence_score: 100,
+            }).save();
+        }
+        return true;
+    };
+
+    return false;
 };
 
 // general logging function
@@ -299,7 +321,7 @@ web_server.put("/users/bulk", async(req, res) => {
     
         type UserDetailError = {
             index: number;
-            field: "username" | "password" | "name" | "role";
+            field: "username" | "password" | "name" | "role" | "year_group";
             error: string | null;
         }
 
@@ -344,6 +366,11 @@ web_server.put("/users/bulk", async(req, res) => {
                 is_valid = false;
             } else if (isNaN(user.role) || user.role < 0 || user.role > 3) {
                 errors.push({ index: i, field: "role", error: "Invalid role" });
+                is_valid = false;
+            };
+
+            if (user.role === ROLE_STUDENT && !user.year_group) {
+                errors.push({ index: i, field: "year_group", error: "No year group provided" });
                 is_valid = false;
             };
 
@@ -532,6 +559,31 @@ web_server.post("/users/@me/tours/:tour_id", async(req, res) => {
     }
 });
 
+// set the on duty status of the user
+// only for teacher or above
+web_server.post("/users/@me/duty-status", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+    
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+    
+        const { on_duty } = req.body;
+    
+        const result = await db_users.findByIdAndUpdate(authCheck.user._id, {
+            on_duty: !!on_duty,
+        }, { new: true });
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on POST \`/users/@me/duty-status\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
 
 // Create a pass. Body requires `destination`, `origin` and `duration`.
 // only student accounts can use this endpoint. Destination and origin must be valid classrooms and destinations respectively
@@ -553,17 +605,28 @@ web_server.put("/passes", async(req, res) => {
         if (!duration) return res.status(400).send("No duration provided");
         if (isNaN(duration) || duration < 0) return res.status(400).send("Invalid duration");
         if (duration > MAX_PASS_DURATION) return res.status(400).send("Duration too long");
+
+
+        async function returnWithFailedAttempt(status: number, message: string) {
+            await db_users.findByIdAndUpdate(authCheck!.user._id, {
+                $inc: {
+                    failed_pass_attempts: 1,
+                },
+            });
+
+            return res.status(status).send(message);
+        }
     
         const users_active_passes = await db_passes.countDocuments({ user_id: authCheck.user._id, completed_at: { $exists: false } });
-        if (users_active_passes > 0) return res.status(409).send("Cannot create a pass while you have an active pass");
+        if (users_active_passes > 0) return await returnWithFailedAttempt(409, "Cannot create a pass while you have an active pass");
 
         const user = authCheck.user;
-        const passes_restrictions = await checkRestrictions(user, destination);
-        if (!passes_restrictions) return res.status(400).send("Does not follow restrictions");
+        const pass_meets_restrictions = await checkRestrictions(user, destination);
+        if (!pass_meets_restrictions) return await returnWithFailedAttempt(400, "Does not follow restrictions");
     
         // check for student grouping
-        const does_not_create_group = await checkStudentGrouping(user, destination);
-        if (!does_not_create_group) return res.status(400).send("Group too large");
+        const pass_will_create_group = await checkStudentGrouping(user, destination);
+        if (pass_will_create_group) return await returnWithFailedAttempt(400, "Group too large");
     
         // create the pass
         const pass = await new db_passes({
@@ -835,6 +898,51 @@ web_server.delete("/restrictions/:restriction_id", async(req, res) => {
         };
     } catch(e: any) {
         log(`Error on DELETE \`/restrictions/:restriction_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// List all groupings
+// requires a teacher account or above
+web_server.get("/groupings", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const groupings = await db_groupings.find({});
+        return res.status(200).json({
+            success: true,
+            data: groupings.map(x => x.toObject({ flattenObjectIds: true })),
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/groupings\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// Fetch a specific grouping by ID
+// requires a teacher account or above
+web_server.get("/groupings/:grouping_id", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const { grouping_id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(grouping_id)) return res.status(404).send("Grouping not found");
+        const grouping = await db_groupings.findById(grouping_id);
+        if (!grouping) return res.status(404).send("Grouping not found");
+        return res.status(200).json({
+            success: true,
+            data: grouping,
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/groupings/:grouping_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });

@@ -219,7 +219,7 @@ users.sort((a,b) => {
 
 		<label for="userBulkCreateUsername" class="label">Skip header row?</label>
 		<div class="flex v-center">
-			<input type="checkbox" id="userBulkCreateSkipHeader" class="input" checked />
+			<input type="checkbox" id="userBulkCreateSkipHeader" checked />
 			<p>Skips the first row of the file as this typically contains column names</p>
 		</div>
 
@@ -241,7 +241,7 @@ users.sort((a,b) => {
 		<p>If you are creating student users, they will be assigned to this year group</p>
 		
 		<div class="flex v-center gap-200">
-			<Button type="submit" text="Save" theme="primary" />
+			<Button type="submit" text="Create Users" theme="primary" modifiers={["no-mgi"]} />
 			<p class="input-error" id="userBulkCreateError"></p>
 		</div>
 	</form>
@@ -519,8 +519,9 @@ users.sort((a,b) => {
 
 				let username_column_index = 0;
 				let name_column_index = 1;
-				let password_column_index = 2;
-				let role_column_index = 3;
+				let password_column_index = -1;
+				let role_column_index = -1;
+				let year_group_column_index = -1;
 				if (skip_header_row) {
 					// attempt to find the columns by name
 					for (const column of rows[0].split(",")) {
@@ -528,10 +529,17 @@ users.sort((a,b) => {
 						if (column.trim().toLowerCase() === "name") name_column_index = rows[0].split(",").indexOf(column);
 						if (column.trim().toLowerCase() === "password") password_column_index = rows[0].split(",").indexOf(column);
 						if (column.trim().toLowerCase() === "role") role_column_index = rows[0].split(",").indexOf(column);
+						if (column.trim().toLowerCase() === "year_group") year_group_column_index = rows[0].split(",").indexOf(column);
 					};
 					//remove the first (header) row
 					rows = rows.slice(1);
 				};
+
+				if (password_column_index === -1 && !default_password) return reject("No password column found.\nYou must provide a default password or include a password column");
+				if (role_column_index === -1 && (default_role === undefined || isNaN(default_role))) return reject("No role column found.\nYou must provide a default role or include a role column");
+
+				const contains_student_users = default_role === ROLE_STUDENT || rows.find(x => parseInt(x[role_column_index]) === ROLE_STUDENT);
+				if (year_group_column_index === -1 && !default_year_group && contains_student_users) return reject("No year group column found.\nYou must provide a default year group or include a year group column to create student users");
 				//parse out the remaining rows
 				const users:PartialUser[] = [];
 				for (const row of rows) {
@@ -541,6 +549,7 @@ users.sort((a,b) => {
 					const password = default_password && default_password !== "" ? default_password : columns[password_column_index];
 					const name = columns[name_column_index];
 					const role = !isNaN(default_role!) ? default_role : columns[role_column_index];
+					const year_group = default_year_group ? default_year_group : columns[year_group_column_index];
 
 					users.push({
 						username: username,
@@ -548,7 +557,8 @@ users.sort((a,b) => {
 						name: name,
 						/* @ts-ignore ill give parseInt a number if i want to */
 						role: parseInt(role),
-						year_group: default_year_group,
+						/* @ts-ignore ill give parseInt a number if i want to */
+						year_group: parseInt(role) === ROLE_STUDENT ? year_group : undefined,
 					});
 				};
 
@@ -581,25 +591,30 @@ users.sort((a,b) => {
 			const role_input = bulk_create_form.querySelector("#userBulkCreateRole") as HTMLSelectElement;
 			const year_group_input = bulk_create_form.querySelector("#userBulkCreateYearGroup") as HTMLInputElement;
 
-			const users = await parseCSVFile(file_input.files![0], skip_header_row.checked, password_input.value, role_input.value ? parseInt(role_input.value) : undefined, year_group_input.value ? parseInt(year_group_input.value) : undefined);
+			let error_message = "";
+			const users = await parseCSVFile(file_input.files![0], skip_header_row.checked, password_input.value, role_input.value ? parseInt(role_input.value) : undefined, year_group_input.value ? parseInt(year_group_input.value) : undefined).catch(e => error_message = e);
 
-			type Error = {
-				index: number;
-				field: "username" | "password" | "name" | "role";
-				error: string | null;
-			}
-
-			const result = await request<{ users: User[], errors: Error[] }>("users/bulk", "PUT", {
-				users: users,
-			});
-			if (result.success) {
-				if (result.data.errors.length === 0) {
-					alert("All users created successfully");
-					location.reload();
-				} else {
-					alert("Some users failed to create");
-					console.log(result.data.errors);
+			if (error_message) {
+				error.innerText = error_message;
+			} else {
+				type Error = {
+					index: number;
+					field: "username" | "password" | "name" | "role";
+					error: string | null;
 				}
+	
+				const result = await request<{ users: User[], errors: Error[] }>("users/bulk", "PUT", {
+					users: users,
+				});
+				if (result.success) {
+					if (result.data.errors.length === 0) {
+						error.innerText = "All users created successfully";
+						location.reload();
+					} else {
+						error.innerText = `${new Set(result.data.errors.map(x => x.index)).size} users failed to create`;
+						console.log(result.data.errors);
+					}
+				};
 			};
 		} catch(e) {
 			console.error(e);

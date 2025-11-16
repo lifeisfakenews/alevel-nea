@@ -1,0 +1,300 @@
+---
+
+import request from "@/lib/request";
+import { type Grouping, type User } from "@/lib/types";
+import { formatTimestamp, formatDuration } from "@/lib/format";
+import DESTINATIONS from "@/lib/locations/destinations";
+
+import Layout from "@/layouts/Primary.astro";
+import Dropdown from "@/components/Dropdown.astro";
+import Modal from "@/components/Modal.astro";
+
+const grouping_result = await request<Grouping[]>("groupings", "GET", undefined, Astro);
+let groupings:Grouping[] = [];
+if (grouping_result.success) groupings = grouping_result.data;
+
+// we need users as well to display info abt the creator of the grouping
+const user_result = await request<User[]>("users", "GET", undefined, Astro);
+let users:User[] = [];
+if (user_result.success) users = user_result.data;
+
+//groupings are automatically sorted by data as they are in the order they were created so we just need to reverse it
+groupings.reverse();
+
+const location_options = Array.from(new Set(groupings.map(x => x.location)));
+
+---
+
+<Layout title="Groupings">
+	<div class="flex v-center" style="margin-block: 1rem" data-tour-target="groupings_filter">
+		<input type="search" placeholder="Search groupings" class="input input-search" id="searchInput" />
+		<div class="push-right flex v-center gap-100">
+			<select class="input input-select" id="stateSelect">
+				<option value="">State</option>
+				<option value="active">Active</option>
+				<option value="resolved">Resolved</option>
+			</select>
+			<select class="input input-select" id="locationSelect">
+				<option value="">Location</option>
+				{location_options.map(x => <option value={x}>{DESTINATIONS.find(y => y.id === x)?.name ?? x}</option>)}
+			</select>
+			<select class="input input-select" id="createdSelect">
+				<option value="">Created</option>
+				<option value="hours_3">Last 3 hours</option>
+				<option value="hours_24">Today</option>
+				<option value="days_7">Last 7 days</option>
+				<option value="days_30">Last 30 days</option>
+			</select>
+		</div>
+	</div>
+	<table data-tour-target="groupings_table">
+		<thead>
+			<tr>
+				<th>Grouping</th>
+				<th>Confidence</th>
+				<th>State</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody data-table-empty="No groupings found">
+			{groupings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(grouping => {
+				const resolved_by = users.find(u => u._id === grouping.resolved_by)!;
+				const state = grouping.resolved_at ? "resolved" : "active";
+				const student_names = grouping.students.map(x => users.find(u => u._id === x)!.name)
+				return <tr data-grouping-id={grouping._id} data-grouping-resolved-by={resolved_by?.name ?? ""} data-grouping-state={state} data-grouping-location={grouping.location} data-grouping-created-at={grouping.created_at}>
+					<td>
+						<p class="grouping-name">{DESTINATIONS.find(x => x.id === grouping.location)?.name ?? grouping.location}</p>
+						<p class="grouping-subtext">{student_names.length > 5 ? student_names.slice(0, 5).join(", ") + " and " + (student_names.length - 5) + " more" : student_names.join(", ")}</p>
+					</td>
+					<td>
+						<p class="grouping-confidence">{grouping.confidence_score}</p>
+						<p class="grouping-subtext smaller">/100</p>
+					</td>
+					<td>
+						{state === "active" ? <>
+							<p class="grouping-state" data-grouping-state="active">Active</p>
+							<p class="grouping-subtext">Created at {formatTimestamp(grouping.created_at, "time")}</p>
+						</> : <>
+							<p class="grouping-state" data-grouping-state="resolved">Resolved</p>
+							<p class="grouping-subtext smaller">by {resolved_by?.name} on {formatTimestamp(grouping.resolved_at!, "date_or_time")}</p>
+						</>}
+					</td>
+					<td>
+						<Dropdown id={"groupingActions__" + grouping._id} three_dots>
+							<button data-grouping-action="view">View Details</button>
+						</Dropdown>
+					</td>
+				</tr>
+			})}
+		</tbody>
+	</table>
+</Layout>
+
+<Modal id="groupingDetailsModal" title="Grouping Details">
+	<div data-tour-target="groupings_details">
+		<div class="detail-card">
+			<h3 class="detail-heading">Overview</h3>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Location</p>
+				<p class="detail-value | push-right" data-grouping-detail="location"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Created</p>
+				<p class="detail-value | push-right" data-grouping-detail="created_at"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Duration</p>
+				<p class="detail-value | push-right" data-grouping-detail="duration"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">State</p>
+				<p class="detail-value | push-right" data-grouping-detail="state"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Resolved At</p>
+				<p class="detail-value | push-right" data-grouping-detail="resolved_at"></p>
+			</div>
+			<div class="detail-row | flex v-center gap-100">
+				<p class="detail-label">Resolved By</p>
+				<p class="detail-value | push-right" data-grouping-detail="resolved_by"></p>
+			</div>
+		</div>
+		<div class="detail-card" id="groupingDetailsStudent">
+			<h3 class="detail-heading">Involved Students</h3>
+			<table style="width: max(50%, 30rem)">
+				<tbody data-table-empty="No students found" data-grouping-detail="students"></tbody>
+			</table>
+		</div>
+	</div>
+</Modal>
+
+<style>
+	.grouping-name {
+		font-weight: 800;
+		font-size: 1.8rem;
+		color: var(--nea-clr-text-100);
+	}
+	.grouping-subtext {
+		font-size: 1.4rem;
+		color: var(--nea-clr-text-600);
+
+		&.smaller {
+			font-size: 1.2rem;
+		}
+	}
+
+	.grouping-confidence {
+		font-weight: 800;
+		font-size: 2rem;
+		color: var(--nea-clr-text-100);
+	}
+	.grouping-state {
+		font-weight: 800;
+
+		&[data-grouping-state="resolved"] {
+			color: var(--nea-clr-success-400);
+		}
+		&[data-grouping-state="active"] {
+			color: var(--nea-clr-danger-400);
+		}
+	}
+
+	th:last-child {
+		width: 1.4rem;
+	}
+
+	.detail-card {
+		border: .1rem solid var(--nea-clr-dark-400);
+		border-radius: .5rem;
+		padding: 1rem;
+		margin-bottom: 1rem;
+
+		.detail-heading {
+			color: var(--nea-clr-primary-400);
+			font-size: 1.6rem;
+			margin-block: 0 .5rem;
+		}
+
+		.detail-label {
+			font-weight: 800;
+		}
+	}
+</style>
+
+<script>
+	import { fetchUser, fetchGrouping } from "@/lib/fetch";
+	import { formatDuration, formatTimestamp } from "@/lib/format";
+	import { start as startTour } from "@/lib/tutorial";
+	import { type User } from "@/lib/types";
+	import DESTINATIONS from "@/lib/locations/destinations";
+
+	let search_query = "", state_filter = "", location_filter = "", created_filter = "";
+
+	const search_input = document.querySelector("#searchInput") as HTMLInputElement;
+	const state_select = document.querySelector("#stateSelect") as HTMLSelectElement;
+	const location_select = document.querySelector("#locationSelect") as HTMLSelectElement;
+	const created_select = document.querySelector("#createdSelect") as HTMLSelectElement;
+
+	search_input.addEventListener("input", () => {
+		search_query = search_input.value;
+		filterTable();
+	});
+	state_select.addEventListener("change", () => {
+		state_filter = state_select.value;
+		filterTable();
+	});
+	location_select.addEventListener("change", () => {
+		location_filter = location_select.value;
+		filterTable();
+	});
+	created_select.addEventListener("change", () => {
+		created_filter = created_select.value;
+		filterTable();
+	});
+
+	function filterTable() {
+		const table = document.querySelector("table") as HTMLTableElement;
+		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
+			const row_name = row.dataset.groupingCreatedBy!;
+			const row_state = row.dataset.groupingState!;
+			const row_location = row.dataset.groupingDestination!;
+			const row_created = new Date(row.dataset.groupingCreatedAt!).getTime();
+
+			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
+			let created_filter_value = 0;
+			if (created_filter !== "") {
+				const [unit, amount] = created_filter.split("_");
+				const days_ms = 24 * 60 * 60 * 1000;
+				const hours_ms = 60 * 60 * 1000;
+				switch(unit) {
+					case "days":
+						created_filter_value = parseInt(amount) * days_ms;
+						break;
+					case "hours":
+						created_filter_value = parseInt(amount) * hours_ms;
+						break;
+				};
+			};
+
+			const matches_search = search_query === "" ? true : row_name.toLowerCase().includes(search_query.toLowerCase());
+			const matches_state = state_filter === "" ? true : row_state === state_filter;
+			const matches_location = location_filter === "" ? true : row_location === location_filter;
+			const matches_created = created_filter_value === 0 ? true : row_created > Date.now() - created_filter_value;
+
+			// if the row matches all filters, show it, otherwise hide it
+			if (matches_search && matches_state && matches_location && matches_created) {
+				row.style.display = "";
+			} else {
+				row.style.display = "none";
+			}
+		}
+	}
+
+	let current_active_grouping_id: string | null = null;
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const seen_tours = (document.querySelector("body") as HTMLBodyElement).dataset.completedTours?.split(",") ?? [];
+		if (!seen_tours.includes("dash_groupings")) startTour("dash_groupings");
+	});
+	
+	const grouping_details_buttons = Array.from(document.querySelectorAll("[data-grouping-action='view']") as NodeListOf<HTMLButtonElement>);
+	grouping_details_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const grouping_id = button.closest("tr")!.dataset.groupingId!;
+			const grouping = await fetchGrouping(grouping_id);
+			if (!grouping) return;
+
+			const grouping_duration = (grouping.resolved_at ? new Date(grouping.resolved_at).getTime() : Date.now()) - new Date(grouping.created_at).getTime();
+			const resolved_by = grouping.resolved_by ? await fetchUser(grouping.resolved_by!) : null;
+
+			(document.querySelector("[data-grouping-detail='location']") as HTMLParagraphElement).innerText = DESTINATIONS.find(x => x.id === grouping.location)?.name ?? grouping.location;
+			(document.querySelector("[data-grouping-detail='duration']") as HTMLParagraphElement).innerText = formatDuration(grouping_duration);
+			(document.querySelector("[data-grouping-detail='created_at']") as HTMLParagraphElement).innerText = formatTimestamp(grouping.created_at, "date_time");
+			(document.querySelector("[data-grouping-detail='state']") as HTMLParagraphElement).innerText = grouping.resolved_at ? "Resolved" : "Active";
+			(document.querySelector("[data-grouping-detail='resolved_at']") as HTMLParagraphElement).innerText = grouping.resolved_at ? formatTimestamp(grouping.resolved_at, "date_time") : "";
+			(document.querySelector("[data-grouping-detail='resolved_by']") as HTMLParagraphElement).innerText = grouping.resolved_by && resolved_by ? resolved_by.name : "";
+
+			(document.querySelector("[data-grouping-detail='students']") as HTMLDivElement).innerHTML = "";
+			const students:User[] = [];
+			for (const student_id of grouping.students) {
+				const user = await fetchUser(student_id);
+				if (user) students.push(user);
+			};
+			students.sort((a, b) => {
+				// first by year group
+				if (a.year_group !== b.year_group) return a.year_group! - b.year_group!;
+				// then alphabetically
+				return a.name.localeCompare(b.name);
+			});
+			for (const user of students) {
+				const student_row = document.createElement("tr");
+				student_row.classList.add("grouping-student");
+				student_row.innerHTML = `<td>${user.name}</td><td>Year ${user.year_group}</td>`;
+				(document.querySelector("[data-grouping-detail='students']") as HTMLDivElement).append(student_row);
+			};
+			current_active_grouping_id = grouping._id;
+
+			openModal("groupingDetailsModal");
+		});
+	});
+</script>
