@@ -20,7 +20,7 @@ const ROLE_TEACHER = 1;
 const ROLE_IT = 2;
 const ROLE_SENIOR = 3;
 
-const MAX_PASS_DURATION = 60 * 60 * 1000;//1 hour in ms
+const MAX_PASS_DURATION = 60 * 60 * 10;//10 minutes in ms
 const MAX_STUDENTS_FOR_GROUP = 4;
 
 //Env vars

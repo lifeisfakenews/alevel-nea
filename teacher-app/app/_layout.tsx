@@ -26,6 +26,15 @@ Notifications.setNotificationHandler({
     }),
 });
 
+if (Platform.OS === "android") {
+    Notifications.setNotificationChannelAsync("alerts_attempt_thrice", {
+        name: "Alerts (3)",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#06c1c1",
+    });
+}
+
 Notifications.setNotificationCategoryAsync("grouping_alert", [
     {
         identifier: "detail",
@@ -38,15 +47,6 @@ Notifications.setNotificationCategoryAsync("grouping_alert", [
         options: { opensAppToForeground: false }
     }
 ]).then(() => console.log("Successfully registered notification category"));
-
-if (Platform.OS === "android") {
-    Notifications.setNotificationChannelAsync("alerts_attempt_thrice", {
-        name: "Alerts (3)",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#06c1c1",
-    });
-}
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
