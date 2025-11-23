@@ -70,7 +70,7 @@ export default function HomeScreen() {
                 <Button onPress={() => router.replace("/create_pass")}>Create Pass</Button>
                 <Button onPress={async() => {
                     await SecureStore.deleteItemAsync("token")
-                    router.replace("/")
+                    router.replace("/login");
                 }}>Logout</Button>
             </ThemedView>
             <ThemedView style={styles.titleContainer}>

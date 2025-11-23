@@ -3,6 +3,9 @@ import express from "express";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 import { randomUUID } from "crypto";
+import { Expo } from "expo-server-sdk";
+
+const expo = new Expo();
 
 // Import db schemas and types
 import { db_users, db_passes, db_restrictions, db_groupings } from "@/schemas";
@@ -30,6 +33,40 @@ const WEBHOOK_URL = import.meta.env.WEBHOOK_URL;
 //handle unhandled promise rejections + uncaught exceptions
 function handleError(err: any) {
     log(`${err.message}\n\`\`\`${err.stack}\`\`\``, "error");
+};
+
+// Send push notifications to one or more devices
+async function sendPushNotification(push_tokens: string[], title: string, body: string, data?: any, category_id?: string) {
+    // first map the tokens into an array of notification objects
+    const notifications = [];
+
+    for (const token of push_tokens) {
+        notifications.push({
+            to: token,
+            sound: "default",
+            title: title,
+            body: body,
+            data: data,
+            channelId: "alerts_attempt_thrice",
+            categoryId: category_id,
+            priority: "high" as const,
+        });
+    };
+
+    // check them (expo can send multiple at once but only so many)
+    const chunks = expo.chunkPushNotifications(notifications);
+    const results = [];
+    for (const chunk of chunks) {
+        const result = await expo.sendPushNotificationsAsync(chunk);
+        results.push(...result);
+    };
+
+    const reset = "\x1b[0m";
+    const gray = "\x1b[90m";
+
+    console.log(`${gray}Sent ${results.length} push notifications${reset}`);
+
+    return results;
 };
 
 // perform required checks for usernames when account is created
@@ -146,11 +183,17 @@ async function checkStudentGrouping(user: User, location: string) {
                 },
             });
         } else {
-            await new db_groupings({
+            const grouping = await new db_groupings({
                 students: [user._id, ...active_passes.map(x => x.user_id)],
                 location: location,
                 confidence_score: 100,
             }).save();
+
+            const on_duty_staff = await db_users.find({ on_duty: true });
+            const push_tokens = on_duty_staff.map(x => x.expo_push_token).filter(x => x) as string[];
+            if (push_tokens.length > 0) {
+                await sendPushNotification(push_tokens, "Student grouping detected", `A group of ${active_passes.length} students has been detected at ${location} with confidence score ${grouping.confidence_score}`, { _id: grouping._id.toString() }, "grouping_alert");
+            }
         }
         return true;
     };
@@ -220,6 +263,36 @@ web_server.use((req, res, next) => {
     next();
 });
 
+web_server.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+
+    res.on("finish", () => {
+        const end = process.hrtime.bigint();
+        const duration_ms = Number(end - start) / 1_000_000;
+
+        const reset = "\x1b[0m";
+        const gray = "\x1b[90m";
+
+        let status_color = "\x1b[37m";
+        if (res.statusCode >= 500) status_color = "\x1b[31m";
+        else if (res.statusCode >= 400) status_color = "\x1b[33m";
+        else if (res.statusCode >= 300) status_color = "\x1b[36m";
+        else if (res.statusCode >= 200) status_color = "\x1b[32m";
+        let status_text = `${status_color}${res.statusCode}${reset}`;
+
+        let method_color = "\x1b[37m";
+        if (req.method === "GET") method_color = "\x1b[32m";
+        else if (req.method === "POST") method_color = "\x1b[34m";
+        else if (req.method === "PUT") method_color = "\x1b[33m";
+        else if (req.method === "DELETE") method_color = "\x1b[31m";
+        let method_text = `${method_color}${req.method} ${reset}`;
+
+        console.log(`${status_text} ${method_text} ${gray}${req.url}${reset} ${duration_ms.toFixed(2)}ms`);
+    });
+
+    next();
+});
+
 web_server.use(express.json());//parse request bodies into JSON
 
 // Define routes
@@ -270,9 +343,15 @@ web_server.post("/users/login", async(req, res) => {
 });
 
 // create a new user. Body requires `username`, `password`, `name`, and `role`
-// TODO: This will be restricted to staff only, however to create test accounts easily it isnt.
+// Requires senior staff or it staff
 web_server.put("/users", async(req, res) => {
     try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
         const { username, password, name, role, year_group } = req.body;
         if (!username) return res.status(400).send("No username provided");
         if (!password) return res.status(400).send("No password provided");
@@ -310,11 +389,16 @@ web_server.put("/users", async(req, res) => {
     }
 });
 
-//Create many users. Body takes an array of objects with `username`, `password`, `name`, and `role`
-// used by the staff dashboard
-// TODO: This will be restricted to staff only, however to create test accounts easily it isnt.
+// Create many users. Body takes an array of objects with `username`, `password`, `name`, and `role`
+// used by the staff dashboard. Requires senior staff or it staff
 web_server.put("/users/bulk", async(req, res) => {
     try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
         const { users } = req.body;
         if (!users) return res.status(400).send("No users provided");
         if (!Array.isArray(users)) return res.status(400).send("Must provide an array of user details");
@@ -584,6 +668,29 @@ web_server.post("/users/@me/duty-status", async(req, res) => {
     }
 });
 
+web_server.post("/users/@me/push-token", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+    
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+    
+        const { push_token } = req.body;
+    
+        const result = await db_users.findByIdAndUpdate(authCheck.user._id, {
+            expo_push_token: push_token,
+        }, { new: true });
+
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on POST \`/users/@me/duty-status\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 // Create a pass. Body requires `destination`, `origin` and `duration`.
 // only student accounts can use this endpoint. Destination and origin must be valid classrooms and destinations respectively

@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Redirect, useRouter } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 import { useFocusEffect } from '@react-navigation/native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -12,12 +13,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/button';
 
-import DESTINATIONS from "@/lib/locations/destinations";
-import CLASSROOMS from "@/lib/locations/classrooms";
-
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
-import CountdownTimer from "@/components/countdown";
 
 export default function HomeScreen() {
     const [user, setUser] = useState<User | null>(null);
@@ -51,6 +48,21 @@ export default function HomeScreen() {
         };
     };
 
+    async function triggerLocalTest() {
+        console.log("Triggering local test");
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: "Local Test",
+                body: "If you see buttons here, the issue is the server.",
+                categoryIdentifier: "grouping_alert",
+                data: { test: true },
+            },
+            trigger: {
+                channelId: "alerts_attempt_thrice",
+            },
+        });
+    }
+
     return (
         <ParallaxScrollView
             headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -64,6 +76,7 @@ export default function HomeScreen() {
             <ThemedView style={styles.stepContainer}>
                 <Button onPress={() => toggleDutyStatus()}>{user.on_duty ? "Stop Duty" : "Start Duty"}</Button>
                 <Button onPress={() => router.replace("/scan-pass")}>Verify Pass</Button>
+                <Button onPress={triggerLocalTest}>Send Test Notification</Button>
                 <Button onPress={async() => {
                     await SecureStore.deleteItemAsync("token")
                     setUser(null);

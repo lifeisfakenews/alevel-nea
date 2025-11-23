@@ -1,14 +1,13 @@
 import React, { useState } from "react";
-import { StyleSheet, TextInput, Alert, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { Redirect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Button } from '@/components/button';
-import { Fonts } from '@/constants/theme';
 
 import request from "@/lib/request";
 
@@ -52,16 +51,16 @@ export default function LoginModal() {
         <ParallaxScrollView
             headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
             headerImage={
-                <IconSymbol size={310} color="#808080" name="user" style={styles.headerImage} />
+                <IconSymbol size={310} color="#808080" name="login" style={styles.headerImage} />
             }>
             <ThemedView>
                 <ThemedText type="title">Login</ThemedText>
 
                 <ThemedText type="subtitle">Username</ThemedText>
-                <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
+                <TextInput value={username} onChangeText={setUsername} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} autoComplete="username" textContentType="username" autoCapitalize="none" importantForAutofill="yes" returnKeyType="next" />
 
                 <ThemedText type="subtitle">Password</ThemedText>
-                <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} />
+                <TextInput value={password} onChangeText={setPassword} secureTextEntry={true} style={{ backgroundColor: "#555", borderRadius: 10, color: "#ffffff", fontSize: 18 }} autoComplete="password" textContentType="password" importantForAutofill="yes" returnKeyType="done" />
 
                 <Button onPress={loginSubmit}>Login</Button>
             </ThemedView>

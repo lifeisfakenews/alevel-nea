@@ -31,6 +31,7 @@ export type User = {
 
     // Staff fields
     on_duty?: boolean;
+    expo_push_token?: string;
 }
 
 const sessionSchema = new Schema({
@@ -60,6 +61,7 @@ const schema = new Schema({
 
     // Staff fields
     on_duty: { type: Boolean, required: false, default: false },
+    expo_push_token: { type: String, required: false },
 }, {
     timestamps: {
         createdAt: "created_at",
