@@ -2,6 +2,7 @@
 
 import request from "@/lib/request";
 import { type Restriction } from "@/lib/types";
+import DESTINATIONS from "@/lib/locations/destinations";
 
 import Layout from "@/layouts/Primary.astro";
 import Button from "@/components/Button.astro";
@@ -130,7 +131,9 @@ restrictions.sort((a,b) => {
 		<input type="number" id="restrictionCreateTTL" class="input" min="0" />
 
 		<label for="restrictionCreateTarget" class="label">Location</label>
-		<input type="text" id="restrictionCreateTarget" class="input" />
+		<select id="restrictionCreateTarget" class="input input-select">
+			{DESTINATIONS.map(x => <option value={x.id}>{x.name}</option>)}
+		</select>
 
 		<div class="flex v-center gap-200">
 			<Button type="submit" text="Save" theme="primary" />
@@ -160,7 +163,9 @@ restrictions.sort((a,b) => {
 		<input type="number" id="restrictionEditTTL" class="input" min="0" />
 
 		<label for="restrictionEditTarget" class="label">Location</label>
-		<input type="text" id="restrictionEditTarget" class="input" />
+		<select id="restrictionEditTarget" class="input input-select">
+			{DESTINATIONS.map(x => <option value={x.id}>{x.name}</option>)}
+		</select>
 
 		<div class="flex v-center gap-200">
 			<Button type="submit" text="Save" theme="primary" />

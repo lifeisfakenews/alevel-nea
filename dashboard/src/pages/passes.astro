@@ -266,8 +266,7 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 			const row_state = row.dataset.passState!;
 			const row_destination = row.dataset.passDestination!;
 			const row_created = new Date(row.dataset.passCreatedAt!).getTime();
-			console.log(row_destination);
-			console.log(destination_filter);
+			
 			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
 			let created_filter_value = 0;
 			if (created_filter !== "") {

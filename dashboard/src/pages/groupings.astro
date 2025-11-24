@@ -8,6 +8,7 @@ import DESTINATIONS from "@/lib/locations/destinations";
 import Layout from "@/layouts/Primary.astro";
 import Dropdown from "@/components/Dropdown.astro";
 import Modal from "@/components/Modal.astro";
+import Button from "@/components/Button.astro";
 
 const grouping_result = await request<Grouping[]>("groupings", "GET", undefined, Astro);
 let groupings:Grouping[] = [];
@@ -73,7 +74,7 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 					<td>
 						{state === "active" ? <>
 							<p class="grouping-state" data-grouping-state="active">Active</p>
-							<p class="grouping-subtext">Created at {formatTimestamp(grouping.created_at, "time")}</p>
+							<p class="grouping-subtext">Created on {formatTimestamp(grouping.created_at, "date_or_time")}</p>
 						</> : <>
 							<p class="grouping-state" data-grouping-state="resolved">Resolved</p>
 							<p class="grouping-subtext smaller">by {resolved_by?.name} on {formatTimestamp(grouping.resolved_at!, "date_or_time")}</p>
@@ -82,6 +83,7 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 					<td>
 						<Dropdown id={"groupingActions__" + grouping._id} three_dots>
 							<button data-grouping-action="view">View Details</button>
+							<button data-grouping-action="resolve">Resolve</button>
 						</Dropdown>
 					</td>
 				</tr>
@@ -126,6 +128,9 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 			</table>
 		</div>
 	</div>
+
+	<div class="flex v-center gap-200">
+		<Button id="groupingResolveButton" text="Mark Resolved" theme="dark" modifiers={["no-mgi"]} />
 </Modal>
 
 <style>
@@ -185,8 +190,9 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 	import { fetchUser, fetchGrouping } from "@/lib/fetch";
 	import { formatDuration, formatTimestamp } from "@/lib/format";
 	import { start as startTour } from "@/lib/tutorial";
-	import { type User } from "@/lib/types";
+	import { type Grouping, type User } from "@/lib/types";
 	import DESTINATIONS from "@/lib/locations/destinations";
+	import request from "@/lib/request";
 
 	let search_query = "", state_filter = "", location_filter = "", created_filter = "";
 
@@ -217,7 +223,7 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
 			const row_name = row.dataset.groupingCreatedBy!;
 			const row_state = row.dataset.groupingState!;
-			const row_location = row.dataset.groupingDestination!;
+			const row_location = row.dataset.groupingLocation!;
 			const row_created = new Date(row.dataset.groupingCreatedAt!).getTime();
 
 			// for the created filter. created_filter_value is the ms to search for (ie created > now - created_filter_value)
@@ -296,5 +302,33 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 
 			openModal("groupingDetailsModal");
 		});
+	});
+
+	const grouping_resolve_buttons = Array.from(document.querySelectorAll("[data-grouping-action='resolve']") as NodeListOf<HTMLButtonElement>);
+	grouping_resolve_buttons.forEach(button => {
+		button.addEventListener("click", async() => {
+			const grouping_id = button.closest("tr")!.dataset.groupingId!;
+			const grouping = await fetchGrouping(grouping_id);
+			if (!grouping) return;
+
+			const result = await request<Grouping>(`groupings/${grouping_id}/resolve`, "POST", {});
+			if (result.success) {
+				location.reload();
+			} else {
+				alert(`Error resolving grouping:\n ${result.error}`);
+			};
+		});
+	});
+
+	const grouping_resolve_button = document.querySelector("#groupingResolveButton") as HTMLButtonElement;
+	grouping_resolve_button?.addEventListener("click", async() => {
+		const grouping_id = current_active_grouping_id!;
+
+		const result = await request<Grouping>(`groupings/${grouping_id}/resolve`, "POST", {});
+		if (result.success) {
+			location.reload();
+		} else {
+			alert(`Error resolving grouping:\n ${result.error}`);
+		};
 	});
 </script>

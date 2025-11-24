@@ -35,6 +35,7 @@ if (Platform.OS === "android") {
     });
 }
 
+
 Notifications.setNotificationCategoryAsync("grouping_alert", [
     {
         identifier: "detail",

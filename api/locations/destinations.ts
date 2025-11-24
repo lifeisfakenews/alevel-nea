@@ -4,28 +4,28 @@ export default [
         "name": "Boys Bathroom - Maths Corridor",
         "type": "Bathroom",
         "location": "Maths Corridor",
-        "grouping_threshold": 4
+        "grouping_threshold": 2
     },
     {
         "id": "BATH_MATHS_GIRLS",
         "name": "Girls Bathroom - Maths Corridor",
         "type": "Bathroom",
         "location": "Maths Corridor",
-        "grouping_threshold": 4
+        "grouping_threshold": 2
     },
     {
         "id": "BATH_MAIN_BOYS",
         "name": "Boys Bathroom - Main Corridor",
         "type": "Bathroom",
         "location": "Main Corridor",
-        "grouping_threshold": 4
+        "grouping_threshold": 2
     },
     {
         "id": "BATH_MAIN_GIRLS",
         "name": "Girls Bathroom - Main Corridor",
         "type": "Bathroom",
         "location": "Main Corridor",
-        "grouping_threshold": 4
+        "grouping_threshold": 2
     },
     {
         "id": "MED1",

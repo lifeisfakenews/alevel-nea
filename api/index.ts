@@ -20,7 +20,7 @@ const ROLE_TEACHER = 1;
 const ROLE_IT = 2;
 const ROLE_SENIOR = 3;
 
-const MAX_PASS_DURATION = 60 * 60 * 10;//10 minutes in ms
+const MAX_PASS_DURATION = 10 * 60 * 1000;//10 minutes in ms
 const MAX_STUDENTS_FOR_GROUP = 4;
 
 //Env vars
@@ -137,8 +137,29 @@ async function checkUserRole(user_or_id: User | string, role: number | number[])
 };
 
 // Check restrictions for pass creation
-// TODO: as global restrictions aren't implemented yet, those checks havent beeen addded it only looks at student restrictions
+// boolean indicating if the pass would meet restrictions. True if it would, false if it wouldnt
 async function checkRestrictions(user: User, location: string) {
+
+    // get all active global restrictions (TTL = 0 is indefinite)
+    const all_restrictions = await db_restrictions.find();
+    const active_restrictions = all_restrictions.filter(x => x.ttl === 0 || x.created_at.getTime() + x.ttl > Date.now());
+
+    for (const restriction of active_restrictions) {
+        // fetch all passes within the interval, if there is an interval
+        let passes_within_interval = await db_passes.find(restriction.interval ? {
+            user_id: user._id,
+            created_at: {
+                $gte: restriction.created_at,
+                $lt: restriction.created_at.getTime() + restriction.interval,
+            }
+        } : {});
+        // if a location is specified, filter for that (if it is the destination of the pass) 
+        if (restriction.target) {
+            if (restriction.target !== location) continue;
+            passes_within_interval = passes_within_interval.filter(x => x.destination === location);
+        };
+        if (passes_within_interval.length >= restriction.amount) return false;
+    };
 
     if (user.restriction_daily) {
         const current_date = new Date();
@@ -167,38 +188,152 @@ async function checkRestrictions(user: User, location: string) {
     return true;
 };
 
+const DEBUG_PRINT_GROUP_SCORES = true;
+const TXT_RESET = "\x1b[0m";
+const TXT_GRAY = "\x1b[90m";
+const TXT_AQUA = "\x1b[36m";
+const TXT_RED = "\x1b[31m";
+const TXT_BOLD = "\x1b[1m";
+// threshold to log event must always be <= threshold to send an alert
+const THRESHOLD_TO_LOG_EVENT = 50;
+const THRESHOLD_TO_SEND_ALERT = 65;
+const THRESHOLD_BLOCK_PASSES = 75;
+
 // Check for student grouping and send alerts
-// Boolean indicating if the pass will create a grouping (true == group)
-async function checkStudentGrouping(user: User, location: string) {
-    const active_passes = await db_passes.find({ completed_at: { $exists: false }, destination: location });
+// Returns a boolean indicating if pass creation should be blocked
+async function checkStudentGrouping(user: User, destination: string, origin: string) {
+    // fetch all active passes for the location
+    let active_passes = await db_passes.find({ completed_at: { $exists: false }, destination: destination });
+    // if the pass is more than an hour late, they probably just forget to complete it
+    const ONE_HOUR = 10 * 60 * 60 * 1000;
+    active_passes = active_passes.filter(x => x.created_at.getTime() + x.duration + ONE_HOUR > Date.now());
 
-    if (active_passes.length >= MAX_STUDENTS_FOR_GROUP) {
-        // check for a grouping event in this destination that hasnt been resoled, update it if so otherwise make a new one
-        const existing_grouping = await db_groupings.findOne({ loation: location, resolved_at: { $exists: false } });
-        if (existing_grouping) {
-            // update the existing grouping
-            await db_groupings.findByIdAndUpdate(existing_grouping._id, {
-                $addToSet: {
-                    students: user._id,
-                },
-            });
-        } else {
-            const grouping = await new db_groupings({
-                students: [user._id, ...active_passes.map(x => x.user_id)],
-                location: location,
-                confidence_score: 100,
-            }).save();
+    //fetch all relavent users in one call to save on db calls
+    const users = await db_users.find({ _id: { $in: [...active_passes.map(x => x.user_id), user._id] } });
 
-            const on_duty_staff = await db_users.find({ on_duty: true });
-            const push_tokens = on_duty_staff.map(x => x.expo_push_token).filter(x => x) as string[];
-            if (push_tokens.length > 0) {
-                await sendPushNotification(push_tokens, "Student grouping detected", `A group of ${active_passes.length} students has been detected at ${location} with confidence score ${grouping.confidence_score}`, { _id: grouping._id.toString() }, "grouping_alert");
-            }
-        }
-        return true;
+    let confidence_score = 0;
+    let involved_students = new Set([user._id]);
+
+    if (DEBUG_PRINT_GROUP_SCORES) {
+        console.log(`${TXT_GRAY}Scoring potential grouping for${TXT_RESET} ${TXT_BOLD}${destination}${TXT_RESET}`);
+    }
+    // for debugging so the score + categories can be logged out easily
+    let subtotal = 0;
+    function score(amount: number | string) {
+        if (typeof amount === "number") {
+            subtotal += amount;
+            confidence_score += amount;
+        } else if (typeof amount === "string") {
+            if (DEBUG_PRINT_GROUP_SCORES) console.log(`${TXT_AQUA}${subtotal >= 0 ? "+" : ""}${subtotal}${TXT_RESET} ${TXT_GRAY}for${TXT_RESET} ${amount}`);
+            subtotal = 0;
+        };
     };
 
-    return false;
+    // First consider active passes in the location
+    // +5 for an active pass
+    // additonal +5 if the student is in the same year group, the pass is late or they originate from the same classroom
+    // +2 if they originate from a nearby but different classroom
+    for (const pass of active_passes) {
+        score(5);
+        involved_students.add(pass.user_id);
+        const pass_creator = users.find(x => x.id == pass.user_id.toString())!;
+        if (pass_creator.year_group === user.year_group) score(5);
+        if (pass.created_at.getTime() + pass.duration < Date.now()) score(5);
+        const origin_classroom_of_pass_to_create = CLASSROOMS.find(x => x.name === origin)!;
+        const origin_classroom_of_active_pass = CLASSROOMS.find(x => x.name === pass.origin)!;
+        if (pass.origin === origin) score(5);
+        else if (origin_classroom_of_pass_to_create.location === origin_classroom_of_active_pass.location) score(2);
+    };
+
+    score("active passes");
+
+    // Next consider the destination grouping threshold
+    // -5 per expected pass in the destination, upto a maximum of -20
+    const destination_details = DESTINATIONS.find(x => x.id === destination)!;
+    score(-1 * Math.min(5 * destination_details.grouping_threshold, 20));
+
+    score("destination grouping threshold");
+
+    // Now consider the students history of groupings
+    // +2 per grouping, ignoring any groupings more than 6 months old
+    // additional +2 for every student in the group also in this one, reduced to +1 after the 3rd appearance of the student , +2 if it was in the same location,
+    // +3 if the group met the threshold to block passes, +2 if the group met the threshold to send an alert
+    const previous_groupings = await db_groupings.find({ students: { $elemMatch: { $eq: user._id } } });
+    const student_appearances = new Map<string, number>();
+    for (const grouping of previous_groupings) {
+        const SIX_MONTHS = 6 * 30 * 24 * 60 * 60 * 1000;
+        if (grouping.created_at.getTime() + SIX_MONTHS < Date.now()) continue;
+        score(2);
+        for (const student of grouping.students) {
+            if (involved_students.has(student)) {
+                const appearances = student_appearances.get(student) ?? 0;
+                if (appearances <= 3) score(2);
+                else score(1);
+                student_appearances.set(student, appearances + 1);
+            };
+        };
+        if (grouping.location === destination) score(2);
+        if (grouping.confidence_score >= THRESHOLD_TO_SEND_ALERT) score(2);
+        if (grouping.confidence_score >= THRESHOLD_BLOCK_PASSES) score(3);
+    };
+
+    score("student's history");
+
+    // consider the involved users failed pass attempts
+    // +1 for every failed pass attempt by the user, upto +10
+    // +1 for every 3 failed pass attempts by other students, upto +5 each
+    for (const student_id of involved_students.values()) {
+        const student = users.find(x => x._id.toString() == student_id.toString())!;
+        if (student.id === user.id) {
+            score(Math.min(10, student.failed_pass_attempts!));
+        } else {
+            const every_three = Math.floor(student.failed_pass_attempts! / 3);
+            score(Math.min(5, every_three));
+        };
+    };
+
+    score("failed pass attempts");
+
+    // Ensure that the confidence score is between 0 and 100
+    confidence_score = Math.min(Math.max(confidence_score, 0), 100);
+
+    if (DEBUG_PRINT_GROUP_SCORES) console.log(`${TXT_GRAY}Confidence score:${TXT_RESET} ${TXT_AQUA}${confidence_score}${TXT_RESET}`);
+
+    let grouping:Grouping | null = null;
+    if (confidence_score >= THRESHOLD_TO_LOG_EVENT) grouping = await createOrUpdateEvent();
+    if (confidence_score >= THRESHOLD_TO_SEND_ALERT) await sendAlert(grouping?.id ?? "");
+
+    if (DEBUG_PRINT_GROUP_SCORES && confidence_score >= THRESHOLD_BLOCK_PASSES) console.log(`${TXT_RED}Restricting pass creation${TXT_RESET}`);
+
+    return confidence_score >= THRESHOLD_BLOCK_PASSES;
+
+    async function sendAlert(grouping_id: string) {
+        const on_duty_staff = await db_users.find({ on_duty: true });
+        const push_tokens = on_duty_staff.map(x => x.expo_push_token).filter(x => x) as string[];
+        if (push_tokens.length > 0) {
+            await sendPushNotification(push_tokens, "Student grouping detected", `A group of ${involved_students.size} students has been detected at ${destination} with confidence score ${confidence_score}`, { _id: grouping_id }, "grouping_alert");
+        };
+    };
+
+    async function createOrUpdateEvent() {
+        const existing_grouping = await db_groupings.findOne({ location: destination, resolved_at: { $exists: false } });
+        if (existing_grouping) {
+            if (DEBUG_PRINT_GROUP_SCORES) console.log(`${TXT_GRAY}Updating existing grouping${TXT_RESET}`);
+            const grouping = await db_groupings.findByIdAndUpdate(existing_grouping._id, {
+                students: Array.from(involved_students),
+                confidence_score: confidence_score,
+            }, { new: true });
+            return grouping;
+        } else {
+            if (DEBUG_PRINT_GROUP_SCORES) console.log(`${TXT_GRAY}Creating new grouping${TXT_RESET}`);
+            const grouping = await new db_groupings({
+                students: Array.from(involved_students),
+                location: destination,
+                confidence_score: confidence_score,
+            }).save();
+            return grouping;
+        }
+    }
 };
 
 // general logging function
@@ -285,7 +420,7 @@ web_server.use((req, res, next) => {
         else if (req.method === "POST") method_color = "\x1b[34m";
         else if (req.method === "PUT") method_color = "\x1b[33m";
         else if (req.method === "DELETE") method_color = "\x1b[31m";
-        let method_text = `${method_color}${req.method} ${reset}`;
+        let method_text = `${method_color}${req.method}${reset}`;
 
         console.log(`${status_text} ${method_text} ${gray}${req.url}${reset} ${duration_ms.toFixed(2)}ms`);
     });
@@ -732,7 +867,7 @@ web_server.put("/passes", async(req, res) => {
         if (!pass_meets_restrictions) return await returnWithFailedAttempt(400, "Does not follow restrictions");
     
         // check for student grouping
-        const pass_will_create_group = await checkStudentGrouping(user, destination);
+        const pass_will_create_group = await checkStudentGrouping(user, destination, origin);
         if (pass_will_create_group) return await returnWithFailedAttempt(400, "Group too large");
     
         // create the pass
@@ -1050,6 +1185,34 @@ web_server.get("/groupings/:grouping_id", async(req, res) => {
         });
     } catch(e: any) {
         log(`Error on GET \`/groupings/:grouping_id\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+web_server.post("/groupings/:grouping_id/resolve", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+    
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+    
+        const { grouping_id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(grouping_id)) return res.status(404).send("Grouping not found");
+        const grouping = await db_groupings.findById(grouping_id);
+        if (!grouping) return res.status(404).send("Grouping not found");
+        if (grouping.resolved_at) return res.status(409).send("Grouping already resolved");
+    
+        const result = await db_groupings.findByIdAndUpdate(grouping_id, {
+            resolved_at: new Date(),
+            resolved_by: authCheck.user._id,
+        }, { new: true });
+        return res.status(200).json({
+            success: true,
+            data: result,
+        });
+    } catch(e: any) {
+        log(`Error on POST \`/groupings/:grouping_id/resolve\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });
