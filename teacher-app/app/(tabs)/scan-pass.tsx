@@ -4,27 +4,26 @@ import React, { useEffect, useState } from "react";
 import { Image } from 'expo-image';
 import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Redirect, useRouter } from "expo-router";
-import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Button } from '@/components/button';
-
-import DESTINATIONS from "@/lib/locations/destinations";
-import CLASSROOMS from "@/lib/locations/classrooms";
 
 import request from "@/lib/request";
 import { type User, type Pass } from "@/lib/types";
-import CountdownTimer from "@/components/countdown";
+import QrScanner from "@/components/scanner";
 
 export default function HomeScreen() {
     const [user, setUser] = useState<User | null>(null);
     const [pass, setPass] = useState<Pass | null>(null);
     const [loading, setLoading] = useState(true);
-
+    
     const router = useRouter();
+
+    if (loading) return <ThemedText>Loading...</ThemedText>;    
+    if (!user) return <Redirect href="/login" />;
+
 
     useFocusEffect(() => {
         async function fetchUser() {
@@ -37,9 +36,6 @@ export default function HomeScreen() {
         fetchUser();
     });
 
-    if (loading) return <ThemedText>Loading...</ThemedText>;
-    
-    if (!user) return <Redirect href="/login" />;
 
     if (!pass) return <ParallaxScrollView
             headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -49,6 +45,7 @@ export default function HomeScreen() {
             <ThemedView style={styles.titleContainer}>
                 <ThemedText type="subtitle">Pass Verification</ThemedText>
                 <ThemedText>Please scan a pass QR code to verify it</ThemedText>
+                <QrScanner />
             </ThemedView>
       </ParallaxScrollView>
 
