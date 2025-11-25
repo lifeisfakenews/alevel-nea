@@ -1217,6 +1217,62 @@ web_server.post("/groupings/:grouping_id/resolve", async(req, res) => {
     }
 });
 
+// Fetch all stats for the dashboard homepage
+// requires a teacher account or above
+web_server.get("/stats/homepage", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const users = await db_users.find({});
+        const passes = await db_passes.find({});
+        const restrictions = await db_restrictions.find({});
+        const groupings = await db_groupings.find({});
+
+        //ensure that are most recent passes are first
+        passes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        groupings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const recent_passes = passes.slice(0, 5);
+        const recent_groupings = groupings.filter(x => !x.resolved_at).slice(0, 5);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                users: {
+                    total: users.length,
+                    students: users.filter(x => x.role === ROLE_STUDENT).length,
+                },
+                passes: {
+                    total: passes.length,
+                    active: passes.filter(x => !x.completed_at).length,
+                    completed: passes.filter(x => x.completed_at !== null).length,
+                },
+                groupings: {
+                    total: groupings.length,
+                    active: groupings.filter(x => !x.resolved_at).length,
+                    resolved: groupings.filter(x => x.resolved_at !== null).length,
+                },
+                restrictions: {
+                    total: restrictions.length,
+                    active: restrictions.filter(x => x.ttl === 0 || x.created_at.getTime() + x.ttl > Date.now()).length,
+                    expired: restrictions.filter(x => x.ttl !== 0 && x.created_at.getTime() + x.ttl < Date.now()).length,
+                },
+
+                recent_passes: recent_passes,
+                recent_groupings: recent_groupings,
+                //get user info about recent pass creators
+                related_users: users.filter(x => recent_passes.map(y => y.user_id).includes(x.id)),
+            }
+        });
+    } catch(e: any) {
+        log(`Error on GET \`/stats/homepage\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
 
 process.on("unhandledRejection", handleError);
 process.on("uncaughtException", handleError);

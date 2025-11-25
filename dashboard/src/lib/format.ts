@@ -1,12 +1,18 @@
+/**
+ * Formats a timestamp to a relative or absolute date string.
+ * @param date The timestamp to format.
+ * @param type The type of date format to use. Can be "relative", "date", "time", "date_or_time", "date_and_time".
+ * @param date_style The date style to use.
+ * @returns The formatted date string.
+ * 
+ * Relative will format the date relative to the current time, works for both past and future dates. Will show a date if more than a month difference.
+ * Time will foramt to HH:MM
+ * Date will format to a date, based on the date style.
+ * Date or time will give time if today, otherwise date.
+ * Date and time will give date and time.
+ */
 
-// Format a date into a string of some format
-// Format types:
-// relative - A relative timestamp, e.g. 1 minute ago NOTE THIS IS FAIRLY BASIC AS ITS ONLY INTENDED TO BE USED FOR PASS DURATION, SO IT ONLY SHOWS UPTO X HOURS. Also assumes it is in the future
-// short_date - Short date string e.g. 22/01/25
-// time - Time string e.g. 12:00
-// date - Date string e.g. 21 Oct 2025
-// date_time - Date and time string e.g. 21 Oct 2025 12:00
-export function formatTimestamp(date: Date | number | string, format: "relative" | "short_date" | "time" | "date" | "date_time" | "date_or_time") {
+export function formatTimestamp(date: Date | number | string, type: "relative" | "date" | "time" | "date_or_time" | "date_time", date_style: "long" | "medium" | "short" | "full" = "medium") {
     let parsed_date = new Date(date);
     /* @ts-ignore TS insists that you cant pass a string to isNaN, but it is required here due to the way parseInt handles timestamps (thinks its an int when it isnt) */
     if (typeof date === "number" || !isNaN(date)) {
@@ -15,50 +21,61 @@ export function formatTimestamp(date: Date | number | string, format: "relative"
     /* @ts-ignore TS claims a Date cant equal a string, but it can */
     if (parsed_date === "Invalid Date") return "Invalid Date";
 
-    if (format === "relative") {
+
+    if (type === "relative") {
         const now = new Date();
-        // Math.abs to keep is positive (assume in the future)
         const diff = Math.abs(now.getTime() - parsed_date.getTime());
-        const diff_seconds = Math.round(diff / 1000);
-        const diff_minutes = Math.round(diff_seconds / 60);
-        const diff_hours = Math.round(diff_minutes / 60);
+        const isPast = now.getTime() - parsed_date.getTime() > 0;
+        
+        function grammer_string(strings: TemplateStringsArray, amount?: number) {
+            const surround = isPast ? "{{}} ago" : "in {{}}";
+            const string_with_plural = amount ? `${amount} ${strings[1]}${amount === 1 ? "" : "s"}` : strings[0];
+            return surround.replace("{{}}", string_with_plural);
+        };
 
-        if (diff_hours > 1) return `in ${diff_hours} hour${diff_hours === 1 ? "" : "s"}`;
-        if (diff_minutes > 1) return `in ${diff_minutes} minute${diff_minutes === 1 ? "" : "s"}`;
-        if (diff_seconds > 1) return `in ${diff_seconds} second${diff_seconds === 1 ? "" : "s"}`;
-        return "now";
+        const diffSeconds = Math.floor(diff / 1000);
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        const diffWeeks = Math.floor(diffDays / 7);
+        const diffMonths = Math.floor(diffDays / 30);
+        if (diffMonths > 1) {
+            const formatter = new Intl.DateTimeFormat(navigator.language, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            });
+            return formatter.format(parsed_date);
+        };
+
+        if (12 < diffHours && diffHours < 48) {
+            let adjacent = new Date();
+            adjacent.setDate(adjacent.getDate() + (isPast ? -1 : 1));
+            if (adjacent.getDate() === parsed_date.getDate()) return isPast ? "yesterday" : "tomorrow";
+        };
+
+        if (diffWeeks > 3) return grammer_string`a month`;
+        if (diffDays > 7) return grammer_string`${diffWeeks} week`;
+        if (diffHours > 24) return grammer_string`${diffDays} day`;
+        if (diffMinutes > 60) return grammer_string`${diffHours} hour`;
+        if (diffSeconds > 60) return grammer_string`${diffMinutes} minute`;
+        return "just now";
     };
 
-    if (format === "date_or_time") {
-        format = parsed_date.toDateString() === new Date().toDateString() ? "time" : "date";
+    if (type === "date_or_time") {
+        type = parsed_date.toDateString() === new Date().toDateString() ? "time" : "date";
     };
 
-    let formatter: Intl.DateTimeFormat | null = null ;
-    if (format === "short_date") {
-        formatter = new Intl.DateTimeFormat(navigator.language, {
-            dateStyle: "short",
-        });
-    } else if (format === "time") {
-        formatter = new Intl.DateTimeFormat(navigator.language, {
-            timeStyle: "short",
-        });
-    } else if (format === "date") {
-        formatter = new Intl.DateTimeFormat(navigator.language, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        });
-    } else if (format === "date_time") {
-        formatter = new Intl.DateTimeFormat(navigator.language, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "numeric",
-        });
+    let options: Intl.DateTimeFormatOptions = {};
+    if (type.includes("date")) {
+        options.dateStyle = date_style;
     };
-    if (formatter) return formatter.format(parsed_date);
-    return parsed_date.toLocaleString();
+    if (type.includes("time")) {
+        options.timeStyle = "short";
+    };
+    
+    const formatter = new Intl.DateTimeFormat(navigator.language, options);
+    return formatter.format(parsed_date);
 };
 
 // takes duration in milliseconds

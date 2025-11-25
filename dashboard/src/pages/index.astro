@@ -1,25 +1,197 @@
 ---
 
+import request from "@/lib/request";
+import { type Pass, type Grouping, type User } from "@/lib/types";
+import { formatDuration, formatTimestamp } from "@/lib/format";
+import DESTINATIONS from "@/lib/locations/destinations";
+
 import Layout from "@/layouts/Primary.astro";
+
+import SummaryStat from "@/components/SummaryStat.astro";
+
+type APIStats = {
+	users: {
+		total: number;
+		students: number;
+	};
+	passes: {
+		total: number;
+		active: number;
+		completed: number;
+	};
+	groupings: {
+		total: number;
+		active: number;
+		resolved: number;
+	};
+	restrictions: {
+		total: number;
+		active: number;
+		expired: number;
+	};
+
+	recent_passes: Pass[];
+	recent_groupings: Grouping[];
+	related_users: User[];
+};
+
+const result = await request<APIStats>("stats/homepage", "GET", undefined, Astro);
+let stats = { 
+	users: { total: 0, students: 0 },
+	passes: { total: 0, active: 0, completed: 0 },
+	groupings: { total: 0, active: 0, resolved: 0 },
+	restrictions: { total: 0, active: 0, expired: 0 },
+	recent_passes: [] as Pass[],
+	recent_groupings: [] as Grouping[],
+	related_users: [] as User[],
+};
+if (result.success) stats = result.data;
+
+console.log(stats);
 
 ---
 
 <Layout title="Home">
-	<h1>Hello, world!</h1>
-	<p>This is the first page of the web dashboard</p>
+	<div class="summary-stats | grid col4 even gap-200">
+		<SummaryStat title="Users" icon="bx-user" value={stats.users.total} subtext={stats.users.students.toLocaleString() + " students"} subtext_type="success" />
+		<SummaryStat title="Passes" icon="bxs-coupon" value={stats.passes.total} subtext={stats.passes.active.toLocaleString() + " active"} subtext_type="success" />
+		<SummaryStat title="Groupings" icon="bx-group" value={stats.groupings.total} subtext={stats.groupings.active.toLocaleString() + " unresolved"} subtext_type="warning" />
+		<SummaryStat title="Restrictions" icon="bx-lock" value={stats.restrictions.total} subtext={stats.restrictions.active.toLocaleString() + " active"} subtext_type="default" />
+	</div>
 
-
-	<div id="thisNeedsExplaining">
-		<p>
-			Lorem ipsum dolor sit amet consectetur adipisicing elit. Quis impedit soluta, error delectus corporis placeat cumque, quidem quia expedita sit totam fuga voluptatem sunt animi quod et sapiente maxime explicabo.
-			<br />
-			Lorem ipsum dolor sit amet consectetur adipisicing elit. Quis impedit soluta, error delectus corporis placeat cumque, quidem quia expedita sit totam fuga voluptatem sunt animi quod et sapiente maxime explicabo.
-			<br />
-			Lorem ipsum dolor sit amet consectetur adipisicing elit. Quis impedit soluta, error delectus corporis placeat cumque, quidem quia expedita sit totam fuga voluptatem sunt animi quod et sapiente maxime explicabo.
-			Lorum ipsum dolor sit amet consectetur adipisicing elit. Quis impedit soluta, error delectus corporis placeat cumque, quidem quia expedita sit totam fuga voluptatem sunt animi quod et sapiente maxime explicabo.
-		</p>
+	<div class="grid col2 even gap-200">
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Recent Passes</h2>
+					</div>
+					<div class="push-right">
+						<a href="/passes">View All</a>
+					</div>
+				</div>
+				{stats.recent_passes.map(pass => {
+					const user = stats.related_users.find(x => x._id === pass.user_id)!;
+					return <div class="pass-card | flex v-center gap-100">
+						<div>
+							<p class="pass-card-name">{user.name}</p>
+							<p class="pass-card-origin">{pass.origin} → {DESTINATIONS.find(x => x.id === pass.destination)!.name}</p>
+							<p class="pass-card-duration">{formatDuration(pass.duration)}</p>
+						</div>
+						<div class="push-right" style="text-align: right;">
+							<p class="pass-card-date">{formatTimestamp(pass.created_at, "relative")}</p>
+							{
+							 pass.completed_at ? <p class="pass-card-status" data-pass-status="completed">Completed</p> :
+							 new Date(pass.created_at).getTime() + pass.duration < Date.now() ? <p class="pass-card-status" data-pass-status="late">Late</p> : 
+							 <p class="pass-card-status" data-pass-status="active">Active</p>
+							}
+						</div>
+					</div>
+				})}
+			</div>
+		</div>
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Unresolved Groupings</h2>
+					</div>
+					<div class="push-right">
+						<a href="/groupings">View All</a>
+					</div>
+				</div>
+				{stats.recent_groupings.map(grouping => <div class="grouping-card | flex v-center gap-100">
+					<div>
+						<p class="grouping-card-location">{DESTINATIONS.find(x => x.id === grouping.location)!.name}</p>
+						<p class="grouping-card-students">{grouping.students.length} students</p>
+					</div>
+					<div class="push-right" style="text-align: right;">
+						<p class="grouping-card-date">{formatTimestamp(grouping.created_at, "relative")}</p>
+						<p class="grouping-card-status">Unresolved</p>
+					</div>
+				</div>)}
+			</div>
+		</div>
 	</div>
 </Layout>
 
-<script>
-</script>
+<style>
+	.summary-stats {
+		margin-bottom: 2rem;
+	}
+
+	.card {
+		background: var(--nea-clr-dark-900);
+        border: .1rem solid var(--nea-clr-dark-400);
+        border-radius: .5rem;
+        box-shadow: .5rem .5rem .5rem rgba(0, 0, 0, .2);
+        padding: 1.5rem;
+
+		.header {
+			border-bottom: .1rem solid var(--nea-clr-dark-700);
+		}
+	}
+
+	.pass-card {
+		padding: 1rem;
+
+		&:not(:last-child) {
+			border-bottom: .1rem solid var(--nea-clr-dark-700);
+		}
+		
+		.pass-card-name {
+			font-weight: 800;
+			font-size: 1.8rem;
+			color: var(--nea-clr-text-100);
+		}
+		.pass-card-origin {
+			font-size: 1.4rem;
+			color: var(--nea-clr-text-600);
+		}
+		.pass-card-duration {
+			font-size: 1.4rem;
+			color: var(--nea-clr-text-600);
+		}
+		.pass-card-date {
+			font-size: 1.2rem;
+			color: var(--nea-clr-text-600);
+		}
+		.pass-card-status {
+			font-size: 1.2rem;
+			color: var(--nea-clr-text-100);
+
+			&[data-pass-status="late"] {
+				color: var(--nea-clr-warning-400);
+			}
+			&[data-pass-status="active"] {
+				color: var(--nea-clr-success-400);
+			}
+		}
+	}
+
+	.grouping-card {
+		padding: 1rem;
+
+		&:not(:last-child) {
+			border-bottom: .1rem solid var(--nea-clr-dark-700);
+		}
+		
+		.grouping-card-location {
+			font-weight: 800;
+			font-size: 1.8rem;
+			color: var(--nea-clr-text-100);
+		}
+		.grouping-card-students {
+			font-size: 1.4rem;
+			color: var(--nea-clr-text-600);
+		}
+		.grouping-card-date {
+			font-size: 1.2rem;
+			color: var(--nea-clr-text-600);
+		}
+		.grouping-card-status {
+			font-size: 1.2rem;
+			color: var(--nea-clr-danger-400);
+		}
+	}
+</style>
