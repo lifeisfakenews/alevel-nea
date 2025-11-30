@@ -20,7 +20,7 @@ const most_recent_session = user.sessions ? user.sessions[user.sessions.length -
 const restriction_filter_value = user.restriction_daily && user.restriction_class ? "both" : user.restriction_daily ? "daily" : user.restriction_class ? "class" : "no";
 
 ---
-<tr data-user-id={user._id} data-bulk-item-id={user._id} data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value}>
+<tr data-user-id={user._id} data-bulk-item-id={user._id} data-user-username={user.username} data-user-name={user.name} data-user-role={user.role} data-user-onduty={user.role === UserRole.STUDENT ? "unset" : user.on_duty ? "on" : "off"} data-user-restriction={restriction_filter_value} data-user-created-at={user.created_at}>
     <td data-table-column="select">
         <label class="bulk-select">
             <input type="checkbox" />

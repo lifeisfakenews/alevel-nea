@@ -8,6 +8,7 @@ import Button from "@/components/Button.astro";
 import Modal from "@/components/Modal.astro";
 import UserRow from "@/components/UserRow.astro";
 import BulkSelect from "@/components/BulkSelect.astro";
+import Dropdown from "@/components/Dropdown.astro";
 
 const result = await request<User[]>("users", "GET", undefined, Astro);
 let users:User[] = [];
@@ -53,6 +54,37 @@ users.sort((a,b) => {
 					<option value="both_restriction">Both Restrictions</option>
 				</optgroup>
 			</select>
+			<Dropdown id="sortUsers" label="Sort">
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="created_at_desc" checked />
+					<span>Newest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="created_at_asc" />
+					<span>Oldest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="name_asc" />
+					<span>Name (A-Z)</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="name_desc" />
+					<span>Name (Z-A)</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="username" />
+					<span>Username</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortUsers" value="role" />
+					<span>Role</span>
+				</label>
+			</Dropdown>
 		</div>
 	</div>
 	<table data-tour-target="users_table">
@@ -331,6 +363,44 @@ users.sort((a,b) => {
 			}
 		}
 	}
+
+	const sort_buttons = Array.from(document.querySelectorAll("[name='sortUsers']") as NodeListOf<HTMLInputElement>);
+	sort_buttons.forEach(button => {
+		button.addEventListener("change", async() => {
+			let sorting_method = button.value;
+
+			// sorting methods. Pass a table row and the one below it. Returns a number indicating the sort order
+			// (-1 if a is before b, 1 if b is before a, 0 if they are equal)
+			type SortFunction = (a: HTMLTableRowElement, b: HTMLTableRowElement) => number;
+			const sort_functions = {
+				"created_at_desc": (a, b) => new Date(b.dataset.userCreatedAt!).getTime() - new Date(a.dataset.userCreatedAt!).getTime(),
+				"created_at_asc": (a, b) => new Date(a.dataset.userCreatedAt!).getTime() - new Date(b.dataset.userCreatedAt!).getTime(),
+				"name_asc": (a, b) => a.dataset.userName!.localeCompare(b.dataset.userName!),
+				"name_desc": (a, b) => b.dataset.userName!.localeCompare(a.dataset.userName!),
+				"username": (a, b) => a.dataset.userUsername!.localeCompare(b.dataset.userUsername!),
+				"role": (a, b) => parseInt(b.dataset.userRole!) - parseInt(a.dataset.userRole!),
+			} as Record<string, SortFunction>;
+
+			const sort = sort_functions[sorting_method];
+			if (!sort) return;
+
+			const table_body = document.querySelector("table tbody") as HTMLTableSectionElement;
+			// keep sorting until no swaps are made
+			let swap_made = true;
+			while (swap_made) {
+				const table_rows = document.querySelectorAll("table tbody tr") as NodeListOf<HTMLTableRowElement>;
+
+				swap_made = false;
+				for (let i = 0; i < table_rows.length - 1; i++) {
+					const order = sort(table_rows[i], table_rows[i + 1]);
+					if (order > 0) {
+						table_body.insertBefore(table_rows[i + 1], table_rows[i]);
+						swap_made = true;
+					};
+				};
+			};	
+		});
+	});
 
 	//perform required checks for passwords when account is created
 	function validatePassword(password: string) {

@@ -9,6 +9,7 @@ import Button from "@/components/Button.astro";
 import Modal from "@/components/Modal.astro";
 import RestrictionRow from "@/components/RestrictionRow.astro";
 import BulkSelect from "@/components/BulkSelect.astro";
+import Dropdown from "@/components/Dropdown.astro";
 
 const result = await request<Restriction[]>("restrictions", "GET", undefined, Astro);
 let restrictions:Restriction[] = [];
@@ -44,6 +45,38 @@ restrictions.sort((a,b) => {
 				<option value="active">Active</option>
 				<option value="expired">Expired</option>
 			</select>
+
+			<Dropdown id="sortRestrictions" label="Sort">
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="created_at_desc" checked />
+					<span>Newest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="created_at_asc" />
+					<span>Oldest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="name_asc" />
+					<span>Name (A-Z)</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="name_desc" />
+					<span>Name (Z-A)</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="type" />
+					<span>Type</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortRestrictions" value="amount" />
+					<span>Amount</span>
+				</label>
+			</Dropdown>
 		</div>
 	</div>
 	<table data-tour-target="restrictions_table">
@@ -237,6 +270,44 @@ restrictions.sort((a,b) => {
 			}
 		}
 	}
+
+	const sort_buttons = Array.from(document.querySelectorAll("[name='sortRestrictions']") as NodeListOf<HTMLInputElement>);
+	sort_buttons.forEach(button => {
+		button.addEventListener("change", async() => {
+			let sorting_method = button.value;
+
+			// sorting methods. Pass a table row and the one below it. Returns a number indicating the sort order
+			// (-1 if a is before b, 1 if b is before a, 0 if they are equal)
+			type SortFunction = (a: HTMLTableRowElement, b: HTMLTableRowElement) => number;
+			const sort_functions = {
+				"created_at_desc": (a, b) => new Date(b.dataset.restrictionCreatedAt!).getTime() - new Date(a.dataset.restrictionCreatedAt!).getTime(),
+				"created_at_asc": (a, b) => new Date(a.dataset.restrictionCreatedAt!).getTime() - new Date(b.dataset.restrictionCreatedAt!).getTime(),
+				"name_asc": (a, b) => a.dataset.restrictionName!.localeCompare(b.dataset.restrictionName!),
+				"name_desc": (a, b) => b.dataset.restrictionName!.localeCompare(a.dataset.restrictionName!),
+				"type": (a, b) => a.dataset.restrictionType!.localeCompare(b.dataset.restrictionType!),
+				"amount": (a, b) => parseInt(b.dataset.restrictionAmount!) - parseInt(a.dataset.restrictionAmount!),
+			} as Record<string, SortFunction>;
+
+			const sort = sort_functions[sorting_method];
+			if (!sort) return;
+
+			const table_body = document.querySelector("table tbody") as HTMLTableSectionElement;
+			// keep sorting until no swaps are made
+			let swap_made = true;
+			while (swap_made) {
+				const table_rows = document.querySelectorAll("table tbody tr") as NodeListOf<HTMLTableRowElement>;
+
+				swap_made = false;
+				for (let i = 0; i < table_rows.length - 1; i++) {
+					const order = sort(table_rows[i], table_rows[i + 1]);
+					if (order > 0) {
+						table_body.insertBefore(table_rows[i + 1], table_rows[i]);
+						swap_made = true;
+					};
+				};
+			};	
+		});
+	});
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const seen_tours = (document.querySelector("body") as HTMLBodyElement).dataset.completedTours?.split(",") ?? [];

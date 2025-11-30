@@ -46,6 +46,37 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 				<option value="days_7">Last 7 days</option>
 				<option value="days_30">Last 30 days</option>
 			</select>
+			<Dropdown id="sortPasses" label="Sort">
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="created_at_desc" checked />
+					<span>Newest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="created_at_asc" />
+					<span>Oldest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="duration_desc" />
+					<span>Longest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="duration_asc" />
+					<span>Shortest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="destination" />
+					<span>Destination</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortPasses" value="state" />
+					<span>State</span>
+				</label>
+			</Dropdown>
 		</div>
 	</div>
 	<table data-tour-target="passes_table">
@@ -64,7 +95,7 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 				const state = !pass.completed_at && Date.now() < pass_expiry ? "active"
 					: pass.completed_at && new Date(pass.completed_at).getTime() < pass_expiry ? "on_time"
 					: pass.completed_at && new Date(pass.completed_at).getTime() > pass_expiry ? "late" : "missing";
-				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-state={state} data-pass-destination={pass.destination} data-pass-created-at={pass.created_at}>
+				return <tr data-pass-id={pass._id} data-pass-created-by={pass_creator.name} data-pass-duration={pass.duration} data-pass-state={state} data-pass-destination={pass.destination} data-pass-created-at={pass.created_at}>
 					<td>
 						<p class="pass-name">{DESTINATIONS.find(x => x.id === pass.destination)?.name ?? pass.destination}</p>
 						<p class="pass-subtext">From {pass.origin} • {formatDuration(pass.duration)}</p>
@@ -296,6 +327,46 @@ const destination_options = Array.from(new Set(passes.map(x => x.destination)));
 			}
 		}
 	}
+
+	const sort_buttons = Array.from(document.querySelectorAll("[name='sortPasses']") as NodeListOf<HTMLButtonElement>);
+	sort_buttons.forEach(button => {
+		button.addEventListener("change", async() => {
+			let sorting_method = button.value;
+
+			// sorting methods. Pass a table row and the one below it. Returns a number indicating the sort order
+			// (-1 if a is before b, 1 if b is before a, 0 if they are equal)
+			type SortFunction = (a: HTMLTableRowElement, b: HTMLTableRowElement) => number;
+			const sort_functions = {
+				"created_at_desc": (a, b) => new Date(b.dataset.passCreatedAt!).getTime() - new Date(a.dataset.passCreatedAt!).getTime(),
+				"created_at_asc": (a, b) => new Date(a.dataset.passCreatedAt!).getTime() - new Date(b.dataset.passCreatedAt!).getTime(),
+				"duration_desc": (a, b) => parseInt(b.dataset.passDuration!) - parseInt(a.dataset.passDuration!),
+				"duration_asc": (a, b) => parseInt(a.dataset.passDuration!) - parseInt(b.dataset.passDuration!),
+				"destination": (a, b) => a.dataset.passDestination!.localeCompare(b.dataset.passDestination!),
+				"state": (a, b) => a.dataset.passState!.localeCompare(b.dataset.passState!),
+			} as Record<string, SortFunction>;
+
+			const sort = sort_functions[sorting_method];
+			if (!sort) return;
+
+			console.log(sorting_method);
+
+			const table_body = document.querySelector("table tbody") as HTMLTableSectionElement;
+			// keep sorting until no swaps are made
+			let swap_made = true;
+			while (swap_made) {
+				const table_rows = document.querySelectorAll("table tbody tr") as NodeListOf<HTMLTableRowElement>;
+
+				swap_made = false;
+				for (let i = 0; i < table_rows.length - 1; i++) {
+					const order = sort(table_rows[i], table_rows[i + 1]);
+					if (order > 0) {
+						table_body.insertBefore(table_rows[i + 1], table_rows[i]);
+						swap_made = true;
+					};
+				};
+			};	
+		});
+	});
 
 	let current_active_pass_id: string | null = null;
 

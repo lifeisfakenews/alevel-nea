@@ -46,6 +46,32 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 				<option value="days_7">Last 7 days</option>
 				<option value="days_30">Last 30 days</option>
 			</select>
+			<Dropdown id="sortGroups" label="Sort">
+				<label class="dropdown-item">
+					<input type="radio" name="sortGroups" value="created_at_desc" checked />
+					<span>Newest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortGroups" value="created_at_asc" />
+					<span>Oldest</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortGroups" value="confience_score" />
+					<span>Confidence</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortGroups" value="location" />
+					<span>Location</span>
+				</label>
+				<br />
+				<label class="dropdown-item">
+					<input type="radio" name="sortGroups" value="state" />
+					<span>State</span>
+				</label>
+			</Dropdown>
 		</div>
 	</div>
 	<table data-tour-target="groupings_table">
@@ -62,7 +88,7 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 				const resolved_by = users.find(u => u._id === grouping.resolved_by)!;
 				const state = grouping.resolved_at ? "resolved" : "active";
 				const student_names = grouping.students.map(x => users.find(u => u._id === x)!.name)
-				return <tr data-grouping-id={grouping._id} data-grouping-resolved-by={resolved_by?.name ?? ""} data-grouping-state={state} data-grouping-location={grouping.location} data-grouping-created-at={grouping.created_at}>
+				return <tr data-grouping-id={grouping._id} data-grouping-resolved-by={resolved_by?.name ?? ""} data-grouping-state={state} data-grouping-confidence={grouping.confidence_score} data-grouping-location={grouping.location} data-grouping-created-at={grouping.created_at}>
 					<td>
 						<p class="grouping-name">{DESTINATIONS.find(x => x.id === grouping.location)?.name ?? grouping.location}</p>
 						<p class="grouping-subtext">{student_names.length > 5 ? student_names.slice(0, 5).join(", ") + " and " + (student_names.length - 5) + " more" : student_names.join(", ")}</p>
@@ -221,7 +247,7 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 	function filterTable() {
 		const table = document.querySelector("table") as HTMLTableElement;
 		for (const row of table.querySelectorAll("tbody tr") as NodeListOf<HTMLTableRowElement>) {
-			const row_name = row.dataset.groupingCreatedBy!;
+			const row_name = (row.querySelector(".grouping-subtext") as HTMLParagraphElement).innerText;
 			const row_state = row.dataset.groupingState!;
 			const row_location = row.dataset.groupingLocation!;
 			const row_created = new Date(row.dataset.groupingCreatedAt!).getTime();
@@ -255,6 +281,43 @@ const location_options = Array.from(new Set(groupings.map(x => x.location)));
 			}
 		}
 	}
+
+	const sort_buttons = Array.from(document.querySelectorAll("[name='sortGroups']") as NodeListOf<HTMLInputElement>);
+	sort_buttons.forEach(button => {
+		button.addEventListener("change", async() => {
+			let sorting_method = button.value;
+
+			// sorting methods. Pass a table row and the one below it. Returns a number indicating the sort order
+			// (-1 if a is before b, 1 if b is before a, 0 if they are equal)
+			type SortFunction = (a: HTMLTableRowElement, b: HTMLTableRowElement) => number;
+			const sort_functions = {
+				"created_at_desc": (a, b) => new Date(b.dataset.groupingCreatedAt!).getTime() - new Date(a.dataset.groupingCreatedAt!).getTime(),
+				"created_at_asc": (a, b) => new Date(a.dataset.groupingCreatedAt!).getTime() - new Date(b.dataset.groupingCreatedAt!).getTime(),
+				"confience_score": (a, b) => parseInt(b.dataset.groupingConfidence!) - parseInt(a.dataset.groupingConfidence!),
+				"location": (a, b) => a.dataset.groupingLocation!.localeCompare(b.dataset.groupingLocation!),
+				"state": (a, b) => a.dataset.groupingState!.localeCompare(b.dataset.groupingState!),
+			} as Record<string, SortFunction>;
+
+			const sort = sort_functions[sorting_method];
+			if (!sort) return;
+
+			const table_body = document.querySelector("table tbody") as HTMLTableSectionElement;
+			// keep sorting until no swaps are made
+			let swap_made = true;
+			while (swap_made) {
+				const table_rows = document.querySelectorAll("table tbody tr") as NodeListOf<HTMLTableRowElement>;
+
+				swap_made = false;
+				for (let i = 0; i < table_rows.length - 1; i++) {
+					const order = sort(table_rows[i], table_rows[i + 1]);
+					if (order > 0) {
+						table_body.insertBefore(table_rows[i + 1], table_rows[i]);
+						swap_made = true;
+					};
+				};
+			};	
+		});
+	});
 
 	let current_active_grouping_id: string | null = null;
 
