@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Button, StyleSheet } from "react-native";
 import { CameraView, Camera } from "expo-camera";
+import { ThemedView } from "./themed-view";
 
-export default function QrScanner() {
+export default function QrScanner({ onBarcodeScanned }: { onBarcodeScanned?: (data: string) => void }) {
     const [has_permission, setHasPermission] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
 
@@ -20,13 +21,16 @@ export default function QrScanner() {
 
     const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
         setScanned(true);
-        alert(`Scanned QR code: ${data}`);
+        if (onBarcodeScanned) onBarcodeScanned(data);
+        else alert(data);
     };
 
     return (
-        <View style={styles.container}>
-            <CameraView onBarCodeScanned={scanned ? undefined : handleBarCodeScanned} barcodeScannerSettings={{barcodeTypes: ["qr"]}} style={StyleSheet.absoluteFillObject} />
-        </View>
+        <ThemedView style={styles.container}>
+            <View style={styles.cameraWrapper}>
+                <CameraView onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} barcodeScannerSettings={{barcodeTypes: ["qr"]}} style={StyleSheet.absoluteFillObject} />
+            </View>
+        </ThemedView>
     );
 }
 
@@ -36,10 +40,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center"
     },
-    text: {
-        position: "absolute",
-        bottom: 80,
-        backgroundColor: "white",
-        padding: 10
+    cameraWrapper: {
+        position: "relative",
+        width: "100%",
+        aspectRatio: 1,
     }
 });
