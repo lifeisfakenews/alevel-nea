@@ -91,3 +91,32 @@ export function formatDuration(duration2: number) {
     if (minutes > 0) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
     return `${seconds} second${seconds === 1 ? "" : "s"}`;
 };
+
+export function formatNumber(num:number, decimals = 1) {
+    if (typeof num !== 'number' || isNaN(num)) return 'Invalid Number';
+    if (num === 0) return '0';
+  
+    const absNum = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+  
+    // Define the abbreviations and their corresponding magnitude
+    const abbrev = [
+        { value: 1e18, symbol: 'E' }, // Exa
+        { value: 1e15, symbol: 'P' }, // Peta
+        { value: 1e12, symbol: 'T' }, // Tera
+        { value: 1e9, symbol: 'B' },  // Billion
+        { value: 1e6, symbol: 'M' },  // Million
+        { value: 1e3, symbol: 'k' },  // Thousand
+    ];
+  
+    // Find the appropriate abbreviation
+    const item = abbrev.find(item => absNum >= item.value);
+    if (!item) return `${num.toLocaleString()}`;
+  
+    const formattedNum = (absNum / item.value).toFixed(decimals);
+
+    // Remove trailing zeros and decimal point if necessary
+    const parts = formattedNum.split('.');
+    if (parts.length > 1 && parts[1] === '0') return `${sign}${parts[0]}${item.symbol}`;
+    return `${sign}${parseFloat(formattedNum)}${item.symbol}`;
+};

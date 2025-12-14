@@ -1,0 +1,130 @@
+---
+
+import request from "@/lib/request";
+import { type Pass, type Grouping, type User } from "@/lib/types";
+import { formatDuration, formatTimestamp } from "@/lib/format";
+
+import Layout from "@/layouts/Primary.astro";
+
+import SummaryStat from "@/components/SummaryStat.astro";
+import LineChart from "@/components/LineChart";
+import PieChart from "@/components/PieChart";
+
+type APIStats = {
+	passes_over_time: { label: string, value: number }[];
+	groupings_over_time: { label: string, value: number }[];
+
+	pass_destination_frequencies: { label: string, value: number }[];
+	pass_origin_frequencies: { label: string, value: number }[];
+	grouping_location_frequencies: { label: string, value: number }[];
+};
+
+const result = await request<APIStats>("stats/analytics", "GET", undefined, Astro);
+let stats = { 
+	passes_over_time: [],
+	groupings_over_time: [],
+
+	pass_destination_frequencies: [],
+	pass_origin_frequencies: [],
+	grouping_location_frequencies: [],
+} as APIStats;
+if (result.success) stats = result.data;
+
+---
+
+<Layout title="Analytics">
+	<!-- <div class="summary-stats | grid col4 even gap-200">
+		<SummaryStat title="Users" icon="bx-user" value={stats.users.total} subtext={stats.users.students.toLocaleString() + " students"} subtext_type="success" />
+		<SummaryStat title="Passes" icon="bxs-coupon" value={stats.passes.total} subtext={stats.passes.active.toLocaleString() + " active"} subtext_type="success" />
+		<SummaryStat title="Groupings" icon="bx-group" value={stats.groupings.total} subtext={stats.groupings.active.toLocaleString() + " unresolved"} subtext_type="warning" />
+		<SummaryStat title="Restrictions" icon="bx-lock" value={stats.restrictions.total} subtext={stats.restrictions.active.toLocaleString() + " active"} subtext_type="default" />
+	</div> -->
+
+	<div class="grid col2 even gap-200">
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Passes</h2>
+					</div>
+					<div class="push-right">
+						<a href="/passes">View All</a>
+					</div>
+				</div>
+				<div style="height: 400px;">
+					<LineChart data={stats.passes_over_time} label="Passes" unit="passes" client:load />
+				</div>
+			</div>
+		</div>
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Groupings</h2>
+					</div>
+					<div class="push-right">
+						<a href="/groupings">View All</a>
+					</div>
+				</div>
+				<div style="height: 400px;">
+					<LineChart data={stats.groupings_over_time} label="Groupings" unit="groupings" client:load />
+				</div>
+			</div>
+		</div>
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Pass Destinations</h2>
+					</div>
+				</div>
+				<div style="height: 400px;">
+					<PieChart data={stats.pass_destination_frequencies} client:load />
+				</div>
+			</div>
+		</div>
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Grouping Locations</h2>
+					</div>
+				</div>
+				<div style="height: 400px;">
+					<PieChart data={stats.grouping_location_frequencies} client:load />
+				</div>
+			</div>
+		</div>
+		<div class="col">
+			<div class="card">
+				<div class="header | flex v-center">
+					<div>
+						<h2 class="h3">Pass Origins</h2>
+					</div>
+				</div>
+				<div style="height: 400px;">
+					<PieChart data={stats.pass_origin_frequencies} client:load />
+				</div>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<style>
+	.summary-stats {
+		margin-bottom: 2rem;
+	}
+
+	.card {
+		background: var(--nea-clr-dark-900);
+        border: .1rem solid var(--nea-clr-dark-400);
+        border-radius: .5rem;
+        box-shadow: .5rem .5rem .5rem rgba(0, 0, 0, .2);
+        padding: 1.5rem;
+
+		.header {
+			border-bottom: .1rem solid var(--nea-clr-dark-700);
+		}
+	}
+
+</style>

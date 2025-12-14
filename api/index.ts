@@ -1,7 +1,7 @@
 //Import required pacakges
 import express from "express";
 import bcrypt from "bcrypt";
-import mongoose from "mongoose";
+import mongoose, { type PipelineStage } from "mongoose";
 import { randomUUID } from "crypto";
 import { Expo } from "expo-server-sdk";
 
@@ -375,6 +375,21 @@ function randomString(length: number) {
         result += characters[index];
     }
     return result;
+};
+
+// pad out missing dates for chart data
+function padMissingDates(data: { label: string, value: number }[], period_start: Date, period_end: Date) {
+    const padded_data = [] as { label: string, value: number }[];
+    const current_date = new Date(period_start);
+
+    while (current_date <= period_end) {
+        const formatted_date = current_date.toISOString().split("T")[0]!;
+        const entry = data.find(x => x.label === formatted_date);
+        padded_data.push(entry ?? { label: formatted_date, value: 0 });
+        current_date.setDate(current_date.getDate() + 1);
+    }
+
+    return padded_data;
 };
 
 
@@ -1270,6 +1285,98 @@ web_server.get("/stats/homepage", async(req, res) => {
         });
     } catch(e: any) {
         log(`Error on GET \`/stats/homepage\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
+        return res.status(500).send("Internal server error");
+    }
+});
+
+// Fetch all stats for the analytics page
+// requires a teacher account or above
+web_server.get("/stats/analytics", async(req, res) => {
+    try {
+        const authCheck = await validateAuthHeader(req.headers.authorization);
+        if (!authCheck) return res.status(401).send("Unauthorized");
+
+        const roleCheck = await checkUserRole(authCheck.user, [ROLE_TEACHER, ROLE_SENIOR, ROLE_IT]);
+        if (!roleCheck) return res.status(403).send("Missing permissions");
+
+        const current_period_end = new Date()
+        const current_period_start = new Date(current_period_end.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+
+        const pipeline = (group_by: any) => [
+            {
+                $match: {
+                    created_at: {
+                        $gte: current_period_start,
+                        $lt: current_period_end,
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: group_by,
+                    value: {
+                        $sum: 1
+                    }
+                }
+            },
+            {
+                $sort: {
+                    _id: 1
+                }
+            },
+            {
+                $project: {
+                    label: "$_id",
+                    value: "$value",
+                    _id: 0
+                }
+            }
+        ] as PipelineStage[];
+
+        function groupWithOther(data: { label: string, value: number }[]) {
+            if (data.length < 10) return data;
+            const average = Math.ceil(data.reduce((sum, item) => sum + item.value, 0) / data.length);
+            const new_data = [] as { label: string, value: number }[];
+            let total_for_other = 0;
+            for (const item of data) {
+                if (item.value <= average * 0.5) {
+                    total_for_other += item.value
+                } else {
+                    new_data.push(item);
+                };
+            };
+            if (total_for_other > 0) new_data.push({ label: "Other", value: total_for_other });
+            return new_data;
+        };
+
+        const passes_over_time = await db_passes.aggregate(pipeline({ $dateToString: { format: "%Y-%m-%d", date: "$created_at" } })) as { label: string, value: number }[];
+        const groupings_over_time = await db_groupings.aggregate(pipeline({ $dateToString: { format: "%Y-%m-%d", date: "$created_at" } })) as { label: string, value: number }[];
+
+        let destination_frequencies_raw = await db_passes.aggregate(pipeline("$destination")) as { label: string, value: number }[];
+        let origin_frequencies_raw = await db_passes.aggregate(pipeline("$origin")) as { label: string, value: number }[];
+        let location_frequencies_raw = await db_groupings.aggregate(pipeline("$location")) as { label: string, value: number }[];
+
+        destination_frequencies_raw = destination_frequencies_raw.map(x => ({ label: DESTINATIONS.find(y => y.id === x.label)!.name, value: x.value }));
+        location_frequencies_raw = location_frequencies_raw.map(x => ({ label: DESTINATIONS.find(y => y.id === x.label)!.name, value: x.value }));
+
+        const destination_frequencies = groupWithOther(destination_frequencies_raw);
+        const origin_frequencies = groupWithOther(origin_frequencies_raw);
+        const location_frequencies = groupWithOther(location_frequencies_raw);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                passes_over_time: padMissingDates(passes_over_time, current_period_start, current_period_end),
+                groupings_over_time: padMissingDates(groupings_over_time, current_period_start, current_period_end),
+
+                pass_destination_frequencies: destination_frequencies,
+                pass_origin_frequencies: origin_frequencies,
+                grouping_location_frequencies: location_frequencies,
+            }
+        });
+
+    } catch(e: any) {
+        log(`Error on GET \`/stats/analytics\`\n\`\`\`${e.message}\`\`\`\n\n\`\`\`${e.stack}\`\`\``, "error");
         return res.status(500).send("Internal server error");
     }
 });
