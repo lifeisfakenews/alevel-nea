@@ -61,3 +61,19 @@ export type Restriction = {
     interval?: number;
     target?: string;
 }
+
+export type Grouping = {
+    //added automatically as a string version of the `_id` field. Doesnt need to be included in the schema
+    _id: string;
+    //this and updated_at are added automatically by mongoose via the `timestamps` option in the schema
+    created_at: string;
+    updated_at: string;
+    
+    resolved_at?: string;
+    resolved_by?: string;
+
+    students: string[];
+    location: string;
+    // between 0 and 100
+    confidence_score: number;
+}

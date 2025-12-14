@@ -50,6 +50,8 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   subtitle: {
+    marginTop: 8,
+    marginBottom: 2,
     fontSize: 20,
     fontWeight: 'bold',
   },
