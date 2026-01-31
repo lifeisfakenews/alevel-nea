@@ -1,6 +1,6 @@
 import { type APIContext, type AstroGlobal } from "astro";
 
-const BASE_URL = import.meta.env.API_URL;
+const BASE_URL = import.meta.env.PUBLIC_API_URL;
 
 type SuccessResponse<T> = { success: true, data: T };
 type ErrorResponse = { success: false, error: string };
