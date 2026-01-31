@@ -18,3 +18,11 @@ declare global {
     function openModal(id: string): void;
     function closeModal(id: string): void;
 }
+
+interface ImportMetaEnv {
+    readonly API_URL: string;
+}
+
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
+}
