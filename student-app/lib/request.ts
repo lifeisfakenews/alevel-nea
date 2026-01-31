@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = "http://192.168.1.75:3000";
+const BASE_URL = "https://nea-api.trwo.me";
 
 type SuccessResponse<T> = { success: true, data: T };
 type ErrorResponse = { success: false, error: string };
