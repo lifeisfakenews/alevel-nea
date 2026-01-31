@@ -7,6 +7,7 @@ import react from "@astrojs/react";
 
 // https://astro.build/config
 export default defineConfig({
+  site: "https://nea.trwo.me",
   output: "server",
 
   adapter: node({
