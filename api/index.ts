@@ -149,8 +149,7 @@ async function checkRestrictions(user: User, location: string) {
         let passes_within_interval = await db_passes.find(restriction.interval ? {
             user_id: user._id,
             created_at: {
-                $gte: restriction.created_at,
-                $lt: restriction.created_at.getTime() + restriction.interval,
+                $gte: Date.now() - restriction.interval,
             }
         } : {});
         // if a location is specified, filter for that (if it is the destination of the pass) 
