@@ -294,9 +294,6 @@ async function checkStudentGrouping(user: User, destination: string, origin: str
 
     score("failed pass attempts");
 
-    score(85);
-    score("testing grouping detection");
-
     // Ensure that the confidence score is between 0 and 100
     confidence_score = Math.min(Math.max(confidence_score, 0), 100);
 
